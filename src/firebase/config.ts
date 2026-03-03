@@ -4,13 +4,13 @@ import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "mock-api-key",
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "mock-auth-domain",
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "mock-project-id",
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "mock-storage-bucket",
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "mock-sender-id",
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || "mock-app-id",
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || "mock-measurement-id"
+  apiKey: "AIzaSyDtB2bWSr42anF_9jsK_YovhiekPRHnofU",
+  authDomain: "quanlyhocsinh-l3.firebaseapp.com",
+  projectId: "quanlyhocsinh-l3",
+  storageBucket: "quanlyhocsinh-l3.firebasestorage.app",
+  messagingSenderId: "962661661065",
+  appId: "1:962661661065:web:660c39893b0e4f0b46c958",
+  measurementId: "G-FNYFSCGP8Q"
 };
 
 const app = initializeApp(firebaseConfig);
@@ -19,4 +19,4 @@ export const db = getFirestore(app);
 export const storage = getStorage(app);
 
 // Flag to check if we are using mock mode (no real config provided)
-export const isMockMode = !import.meta.env.VITE_FIREBASE_API_KEY;
+export const isMockMode = false;
