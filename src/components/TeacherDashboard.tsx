@@ -729,7 +729,11 @@ export default function TeacherDashboard() {
                   window.location.href = "/login";
                 } catch (authError: any) {
                   console.error("Auth sync failed:", authError);
-                  alert("Đã lưu mật khẩu mới vào Cơ sở dữ liệu. Tuy nhiên, do yêu cầu bảo mật của Google, bạn cần Đăng xuất và Đăng nhập lại NGAY LẬP TỨC để mật khẩu mới có hiệu lực trên hệ thống đăng nhập. (Lỗi: " + authError.message + ")");
+                  if (authError.code === 'auth/operation-not-allowed') {
+                    alert("Đã lưu vào Cơ sở dữ liệu, nhưng hệ thống đăng nhập (Firebase) chưa cho phép đổi tên đăng nhập.\n\nCÁCH KHẮC PHỤC:\n1. Vào Firebase Console -> Authentication -> Settings.\n2. Bật (Enable) mục 'Email address change' trong phần 'User actions'.\n3. Thử lại sau khi đã bật.");
+                  } else {
+                    alert("Đã lưu mật khẩu mới vào Cơ sở dữ liệu. Tuy nhiên, do yêu cầu bảo mật của Google, bạn cần Đăng xuất và Đăng nhập lại NGAY LẬP TỨC để mật khẩu mới có hiệu lực trên hệ thống đăng nhập. (Lỗi: " + authError.message + ")");
+                  }
                 }
               } catch (error: any) {
                 console.error("Update failed:", error);
