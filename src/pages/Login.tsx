@@ -14,25 +14,23 @@ export default function Login() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Tự động chuyển về chữ thường và thêm đuôi @school.com nếu thiếu
     const rawEmail = email.includes("@") ? email : `${email}@school.com`;
     const loginEmail = rawEmail.toLowerCase().trim();
     
     try {
       const u = await login(loginEmail, password, role);
-      setUser(u);
+      // Lấy thêm profile từ Firestore để chắc chắn có role
+      const profile = await getUser(loginEmail);
+      setUser({ ...u, ...profile });
       navigate("/dashboard");
     } catch (error: any) {
       console.error("Login error:", error.code, error.message);
       
-      // Kiểm tra xem người dùng có tồn tại trong Cơ sở dữ liệu không
       const firestoreUser = await getUser(loginEmail);
       
       if (firestoreUser) {
-        // Trường hợp 1: Có trong DB nhưng đăng nhập thất bại (có thể do sai mật khẩu Auth)
         if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found') {
           if (firestoreUser.password === password) {
-            // Nếu mật khẩu nhập vào khớp với mật khẩu trong DB, thử đăng ký lại (đồng bộ)
             try {
               const newUser = await register(loginEmail, password);
               setUser({ ...newUser, ...firestoreUser });
@@ -50,7 +48,6 @@ export default function Login() {
         }
       }
 
-      // Trường hợp 2: Tạo tài khoản Giáo viên/Admin lần đầu
       if (role === "teacher" && (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') && !firestoreUser) {
         try {
           const newUser = await register(loginEmail, password);
