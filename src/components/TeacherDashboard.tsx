@@ -33,29 +33,40 @@ export default function TeacherDashboard() {
   const [studentSearchTerm, setStudentSearchTerm] = useState("");
 
   useEffect(() => {
+    console.log("TeacherDashboard - Current User:", user);
+    console.log("TeacherDashboard - Teachers List:", teachers);
+  }, [user, teachers]);
+
+  useEffect(() => {
     loadData();
   }, []);
 
   const loadData = async () => {
-    const as = await getAssignments();
-    const su = await getSubmissions();
-    const st = await getStudents();
-    const te = await getTeachers();
-    const po = await getPosts();
-    const set = await getAppSettings();
-    setAssignments(as);
-    setSubmissions(su);
-    setStudents(st);
-    setTeachers(te);
-    setPosts(po);
-    setAppSettings(set);
-    setSettingsForm({
-      teacherName: (set as any).teacherName || "",
-      schoolName: (set as any).schoolName || "",
-      className: (set as any).className || "",
-      avatarUrl: (set as any).avatarUrl || "",
-      appName: (set as any).appName || ""
-    });
+    console.log("Loading dashboard data...");
+    try {
+      const as = await getAssignments();
+      const su = await getSubmissions();
+      const st = await getStudents();
+      const te = await getTeachers();
+      const po = await getPosts();
+      const set = await getAppSettings();
+      console.log("Data loaded:", { assignments: as.length, students: st.length, teachers: te.length });
+      setAssignments(as);
+      setSubmissions(su);
+      setStudents(st);
+      setTeachers(te);
+      setPosts(po);
+      setAppSettings(set);
+      setSettingsForm({
+        teacherName: (set as any).teacherName || "",
+        schoolName: (set as any).schoolName || "",
+        className: (set as any).className || "",
+        avatarUrl: (set as any).avatarUrl || "",
+        appName: (set as any).appName || ""
+      });
+    } catch (error) {
+      console.error("Failed to load data:", error);
+    }
   };
 
   const handleUndo = () => {
@@ -637,31 +648,101 @@ export default function TeacherDashboard() {
             <h3 className="text-lg font-bold mb-4">Đổi thông tin đăng nhập</h3>
             <form onSubmit={async (e) => {
               e.preventDefault();
+              console.log("Form submitted");
               const form = e.target as HTMLFormElement;
+              const submitBtn = form.querySelector('button[type="submit"]') as HTMLButtonElement;
+              const originalText = submitBtn.innerText;
+              
               const newUsername = (form.elements.namedItem('newUsername') as HTMLInputElement).value.trim();
               const newPassword = (form.elements.namedItem('newPassword') as HTMLInputElement).value;
               const confirmPassword = (form.elements.namedItem('confirmPassword') as HTMLInputElement).value;
-              if (newPassword && newPassword !== confirmPassword) { alert("Mật khẩu không khớp!"); return; }
-              const currentTeacher = teachers.find(t => t.email?.toLowerCase() === user?.email?.toLowerCase());
-              if (currentTeacher) {
+              
+              console.log("Data:", { newUsername, hasPassword: !!newPassword });
+
+              if (newPassword && newPassword !== confirmPassword) { 
+                alert("Mật khẩu xác nhận không khớp!"); 
+                return; 
+              }
+
+              if (!newUsername && !newPassword) {
+                alert("Vui lòng nhập tên đăng nhập mới hoặc mật khẩu mới!");
+                return;
+              }
+
+              try {
+                submitBtn.disabled = true;
+                submitBtn.innerText = "Đang xử lý...";
+
+                console.log("Current user from AuthContext:", user);
+
+                // Ưu tiên dùng thông tin từ user context nếu có đủ id và email
+                let currentTeacherId = user?.id || user?.uid;
+                let currentTeacherEmail = user?.email;
+
+                // Nếu không có id trong user context, tìm trong danh sách teachers
+                if (!currentTeacherId || currentTeacherId === user?.uid) {
+                  const found = teachers.find(t => 
+                    t.email?.toLowerCase() === user?.email?.toLowerCase() ||
+                    t.id?.toLowerCase() === user?.email?.split('@')[0]?.toLowerCase()
+                  );
+                  if (found) {
+                    currentTeacherId = found.id;
+                    currentTeacherEmail = found.email;
+                  }
+                }
+                
+                if (!currentTeacherId) {
+                  console.error("Teacher ID not found. User object:", user);
+                  alert("Không tìm thấy mã định danh giáo viên của bạn. Vui lòng thử Đăng xuất và Đăng nhập lại để đồng bộ dữ liệu.");
+                  return;
+                }
+
+                console.log("Updating teacher with ID:", currentTeacherId);
+
+                const updates: any = {};
+                const newEmail = newUsername ? `${newUsername.toLowerCase()}@school.com` : currentTeacherEmail;
+                
+                if (newUsername) { 
+                  updates.id = newUsername.toLowerCase(); 
+                  updates.email = newEmail; 
+                }
+                if (newPassword) updates.password = newPassword;
+                
+                console.log("Applying updates to DB:", updates);
+                // 1. Cập nhật Cơ sở dữ liệu
+                await updateTeacher(currentTeacherId, updates);
+                console.log("DB update success");
+                
+                // 2. Đồng bộ với hệ thống đăng nhập
                 try {
-                  const updates: any = {};
-                  const newEmail = newUsername ? `${newUsername.toLowerCase()}@school.com` : currentTeacher.email;
-                  if (newUsername) { updates.id = newUsername.toLowerCase(); updates.email = newEmail; }
-                  if (newPassword) updates.password = newPassword;
-                  await updateTeacher(currentTeacher.id, updates);
-                  try {
-                    if (newPassword) await updateUserPassword(newPassword);
-                    if (newUsername && newEmail !== currentTeacher.email) await updateUserEmail(newEmail);
-                    alert("Thành công! Hãy đăng xuất và đăng nhập lại.");
-                  } catch (e) { alert("Đã lưu vào DB nhưng Auth yêu cầu đăng nhập lại để đổi mật khẩu."); }
-                } catch (e: any) { alert("Lỗi: " + e.message); }
+                  if (newPassword) {
+                    console.log("Updating Auth password...");
+                    await updateUserPassword(newPassword);
+                  }
+                  if (newUsername && newEmail !== currentTeacherEmail) {
+                    console.log("Updating Auth email...");
+                    await updateUserEmail(newEmail);
+                  }
+                  
+                  alert("Cập nhật thành công! Hệ thống sẽ tự động đăng xuất để bạn đăng nhập lại với thông tin mới.");
+                  await logout();
+                  window.location.href = "/login";
+                } catch (authError: any) {
+                  console.error("Auth sync failed:", authError);
+                  alert("Đã lưu mật khẩu mới vào Cơ sở dữ liệu. Tuy nhiên, do yêu cầu bảo mật của Google, bạn cần Đăng xuất và Đăng nhập lại NGAY LẬP TỨC để mật khẩu mới có hiệu lực trên hệ thống đăng nhập. (Lỗi: " + authError.message + ")");
+                }
+              } catch (error: any) {
+                console.error("Update failed:", error);
+                alert("Lỗi khi cập nhật: " + error.message);
+              } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerText = originalText;
               }
             }} className="space-y-4 max-w-md">
-              <input type="text" name="newUsername" placeholder="Tên đăng nhập mới" className="w-full px-4 py-2 rounded-xl border border-slate-200 outline-none" />
-              <input type="password" name="newPassword" placeholder="Mật khẩu mới" className="w-full px-4 py-2 rounded-xl border border-slate-200 outline-none" />
-              <input type="password" name="confirmPassword" placeholder="Xác nhận mật khẩu" className="w-full px-4 py-2 rounded-xl border border-slate-200 outline-none" />
-              <button type="submit" className="bg-slate-800 text-white px-6 py-2 rounded-xl w-full">Cập nhật</button>
+              <input type="text" name="newUsername" placeholder="Tên đăng nhập mới (để trống nếu không đổi)" className="w-full px-4 py-2 rounded-xl border border-slate-200 outline-none" />
+              <input type="password" name="newPassword" placeholder="Mật khẩu mới (để trống nếu không đổi)" className="w-full px-4 py-2 rounded-xl border border-slate-200 outline-none" />
+              <input type="password" name="confirmPassword" placeholder="Xác nhận mật khẩu mới" className="w-full px-4 py-2 rounded-xl border border-slate-200 outline-none" />
+              <button type="submit" className="bg-slate-800 text-white px-6 py-2 rounded-xl w-full disabled:opacity-50">Cập nhật</button>
             </form>
           </div>
         </div>
