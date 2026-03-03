@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { getAssignments, getSubmissions, createAssignment, gradeSubmission, getStudents, addStudent, updateAssignment, deleteAssignment, updateStudent, deleteStudent, undoLastAction, getPosts, createPost, deletePost, updatePost, getAppSettings, updateAppSettings, getTeachers, addTeacher, updateTeacher, deleteTeacher } from "../firebase/db";
+import { updateUserPassword, updateUserEmail } from "../firebase/auth";
 import { Plus, FileText, Video, PenTool, CheckCircle, Sparkles, BarChart2, Users, Edit, Trash2, Upload, Download, Undo2, Image as ImageIcon, Paperclip, Settings, X, CheckCircle2, XCircle } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import * as XLSX from "xlsx";
@@ -129,9 +130,11 @@ export default function TeacherDashboard() {
     e.preventDefault();
     try {
       if (editingStudent) {
-        await updateStudent(editingStudent.id, { ...newStudent, email: `${newStudent.username}@school.com` });
+        // Pass id: newStudent.username so updateStudent knows to move the document if ID changed
+        await updateStudent(editingStudent.id, { ...newStudent, id: newStudent.username, email: `${newStudent.username}@school.com` });
         setEditingStudent(null);
       } else {
+        // Ensure password is saved so auto-registration in Login.tsx can work
         await addStudent({ ...newStudent, email: `${newStudent.username}@school.com` });
       }
       setIsAddingStudent(false);
@@ -158,15 +161,21 @@ export default function TeacherDashboard() {
     try {
       const teacherEmail = `${newTeacher.username}@school.com`;
       if (editingTeacher) {
-        await updateTeacher(editingTeacher.id, { ...newTeacher, email: teacherEmail });
+        // Pass id: newTeacher.username so updateTeacher knows to move the document if ID changed
+        await updateTeacher(editingTeacher.id, { ...newTeacher, id: newTeacher.username, email: teacherEmail });
         
-        // Nếu đang sửa chính mình, cập nhật cả mật khẩu đăng nhập
-        if (editingTeacher.email === user?.email && newTeacher.password) {
+        // If editing self, update Auth password and email too
+        if (editingTeacher.email === user?.email) {
           try {
-            await updateUserPassword(newTeacher.password);
+            if (newTeacher.password) {
+              await updateUserPassword(newTeacher.password);
+            }
+            if (teacherEmail !== editingTeacher.email) {
+              await updateUserEmail(teacherEmail);
+            }
           } catch (authError: any) {
-            console.error("Auth password update failed:", authError);
-            alert("Đã cập nhật thông tin trong DB nhưng không thể cập nhật mật khẩu đăng nhập. Có thể bạn cần đăng nhập lại để thực hiện việc này.");
+            console.error("Auth update failed:", authError);
+            alert("Đã cập nhật thông tin trong DB nhưng không thể cập nhật thông tin đăng nhập (Auth). Có thể bạn cần đăng nhập lại để thực hiện việc này do yêu cầu bảo mật của Firebase.");
           }
         }
         setEditingTeacher(null);
