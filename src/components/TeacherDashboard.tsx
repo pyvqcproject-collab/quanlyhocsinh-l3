@@ -1026,19 +1026,35 @@ export default function TeacherDashboard() {
                 return;
               }
               
-              const currentTeacher = teachers.find(t => t.id === user?.id);
+              const currentTeacher = teachers.find(t => t.id === user?.id || t.email === user?.email);
               if (currentTeacher) {
                 try {
                   const updates: any = {};
+                  const newEmail = newUsername ? `${newUsername}@school.com` : currentTeacher.email;
+                  
                   if (newUsername) {
                     updates.id = newUsername;
-                    updates.email = `${newUsername}@school.com`;
+                    updates.email = newEmail;
                   }
                   if (newPassword) updates.password = newPassword;
                   
+                  // Update Firestore
                   await updateTeacher(currentTeacher.id, updates);
-                  alert("Đổi thông tin thành công! Vui lòng đăng nhập lại.");
-                  form.reset();
+                  
+                  // Sync with Firebase Auth
+                  try {
+                    if (newPassword) {
+                      await updateUserPassword(newPassword);
+                    }
+                    if (newUsername && newEmail !== currentTeacher.email) {
+                      await updateUserEmail(newEmail);
+                    }
+                    alert("Đổi thông tin thành công! Vui lòng đăng nhập lại để áp dụng thay đổi.");
+                    form.reset();
+                  } catch (authError: any) {
+                    console.error("Auth sync failed:", authError);
+                    alert("Đã lưu mật khẩu vào hệ thống, nhưng Firebase yêu cầu bạn phải Đăng xuất và Đăng nhập lại ngay lập tức để hoàn tất việc đổi mật khẩu vì lý do bảo mật.");
+                  }
                 } catch (error: any) {
                   alert("Lỗi: " + error.message);
                 }
