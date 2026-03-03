@@ -49,19 +49,19 @@ export const undoLastAction = () => {
 const generateId = () => Math.random().toString(36).substring(2, 9);
 
 export const getUser = async (uid: string) => {
+  const normalizedUid = uid.toLowerCase().trim();
   if (isMockMode) {
-    return mockData.users.find(u => u.id === uid || u.email === uid) || null;
+    return mockData.users.find(u => u.id === normalizedUid || u.email === normalizedUid) || null;
   }
   
   // 1. Try direct ID lookup
-  const docSnap = await getDoc(doc(db, "users", uid));
+  const docSnap = await getDoc(doc(db, "users", normalizedUid));
   if (docSnap.exists()) {
     return Object.assign({ id: docSnap.id }, docSnap.data());
   }
   
   // 2. Fallback: search by email (case-insensitive)
-  const searchEmail = uid.toLowerCase().trim();
-  const q = query(collection(db, "users"), where("email", "==", searchEmail));
+  const q = query(collection(db, "users"), where("email", "==", normalizedUid));
   const snapshot = await getDocs(q);
   if (!snapshot.empty) {
     return Object.assign({ id: snapshot.docs[0].id }, snapshot.docs[0].data());
@@ -154,7 +154,7 @@ export const getTeachers = async () => {
 
 export const addStudent = async (data: any) => {
   if (isMockMode) {
-    const id = data.username || generateId();
+    const id = (data.username || generateId()).toLowerCase();
     if (mockData.users.some(u => u.id === id)) {
       throw new Error("Username already exists");
     }
@@ -163,17 +163,17 @@ export const addStudent = async (data: any) => {
     saveMockData();
     return newStudent;
   }
-  const id = data.username || generateId();
+  const id = (data.username || generateId()).toLowerCase();
   const docRef = doc(db, "users", id);
   const docSnap = await getDoc(docRef);
   if (docSnap.exists()) throw new Error("Username already exists");
-  await setDoc(docRef, { role: "student", ...data });
+  await setDoc(docRef, { role: "student", ...data, email: data.email?.toLowerCase() });
   return { id, ...data };
 };
 
 export const addTeacher = async (data: any) => {
   if (isMockMode) {
-    const id = data.username || generateId();
+    const id = (data.username || generateId()).toLowerCase();
     if (mockData.users.some(u => u.id === id)) {
       throw new Error("Username already exists");
     }
@@ -182,69 +182,75 @@ export const addTeacher = async (data: any) => {
     saveMockData();
     return newTeacher;
   }
-  const id = data.username || generateId();
+  const id = (data.username || generateId()).toLowerCase();
   const docRef = doc(db, "users", id);
   const docSnap = await getDoc(docRef);
   if (docSnap.exists()) throw new Error("Username already exists");
-  await setDoc(docRef, { role: "teacher", ...data });
+  await setDoc(docRef, { role: "teacher", ...data, email: data.email?.toLowerCase() });
   return { id, ...data };
 };
 
 export const updateStudent = async (id: string, data: any) => {
+  const normalizedId = id.toLowerCase();
+  const normalizedNewId = data.id?.toLowerCase();
+  
   if (isMockMode) {
-    const index = mockData.users.findIndex(u => u.id === id);
+    const index = mockData.users.findIndex(u => u.id === normalizedId);
     if (index > -1) {
-      if (data.id && data.id !== id) {
-        const existing = mockData.users.find(u => u.id === data.id);
+      if (normalizedNewId && normalizedNewId !== normalizedId) {
+        const existing = mockData.users.find(u => u.id === normalizedNewId);
         if (existing) throw new Error("Username already exists");
       }
-      Object.assign(mockData.users[index], data);
+      Object.assign(mockData.users[index], { ...data, id: normalizedNewId || normalizedId, email: data.email?.toLowerCase() });
       saveMockData();
       return mockData.users[index];
     }
     return null;
   }
-  if (data.id && data.id !== id) {
-    const newDocRef = doc(db, "users", data.id);
+  if (normalizedNewId && normalizedNewId !== normalizedId) {
+    const newDocRef = doc(db, "users", normalizedNewId);
     const newDocSnap = await getDoc(newDocRef);
     if (newDocSnap.exists()) throw new Error("Username already exists");
-    const oldDocRef = doc(db, "users", id);
+    const oldDocRef = doc(db, "users", normalizedId);
     const oldDocSnap = await getDoc(oldDocRef);
     if (oldDocSnap.exists()) {
-      await setDoc(newDocRef, { ...oldDocSnap.data(), ...data });
+      await setDoc(newDocRef, { ...oldDocSnap.data(), ...data, id: normalizedNewId, email: data.email?.toLowerCase() });
       await deleteDoc(oldDocRef);
     }
   } else {
-    await updateDoc(doc(db, "users", id), data);
+    await updateDoc(doc(db, "users", normalizedId), { ...data, email: data.email?.toLowerCase() });
   }
 };
 
 export const updateTeacher = async (id: string, data: any) => {
+  const normalizedId = id.toLowerCase();
+  const normalizedNewId = data.id?.toLowerCase();
+
   if (isMockMode) {
-    const index = mockData.users.findIndex(u => u.id === id);
+    const index = mockData.users.findIndex(u => u.id === normalizedId);
     if (index > -1) {
-      if (data.id && data.id !== id) {
-        const existing = mockData.users.find(u => u.id === data.id);
+      if (normalizedNewId && normalizedNewId !== normalizedId) {
+        const existing = mockData.users.find(u => u.id === normalizedNewId);
         if (existing) throw new Error("Username already exists");
       }
-      Object.assign(mockData.users[index], data);
+      Object.assign(mockData.users[index], { ...data, id: normalizedNewId || normalizedId, email: data.email?.toLowerCase() });
       saveMockData();
       return mockData.users[index];
     }
     return null;
   }
-  if (data.id && data.id !== id) {
-    const newDocRef = doc(db, "users", data.id);
+  if (normalizedNewId && normalizedNewId !== normalizedId) {
+    const newDocRef = doc(db, "users", normalizedNewId);
     const newDocSnap = await getDoc(newDocRef);
     if (newDocSnap.exists()) throw new Error("Username already exists");
-    const oldDocRef = doc(db, "users", id);
+    const oldDocRef = doc(db, "users", normalizedId);
     const oldDocSnap = await getDoc(oldDocRef);
     if (oldDocSnap.exists()) {
-      await setDoc(newDocRef, { ...oldDocSnap.data(), ...data });
+      await setDoc(newDocRef, { ...oldDocSnap.data(), ...data, id: normalizedNewId, email: data.email?.toLowerCase() });
       await deleteDoc(oldDocRef);
     }
   } else {
-    await updateDoc(doc(db, "users", id), data);
+    await updateDoc(doc(db, "users", normalizedId), { ...data, email: data.email?.toLowerCase() });
   }
 };
 
