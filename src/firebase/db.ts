@@ -53,7 +53,18 @@ export const getUser = async (uid: string) => {
     return mockData.users.find(u => u.id === uid || u.email === uid) || null;
   }
   const docSnap = await getDoc(doc(db, "users", uid));
-  return docSnap.exists() ? Object.assign({ id: docSnap.id }, docSnap.data()) : null;
+  if (docSnap.exists()) {
+    return Object.assign({ id: docSnap.id }, docSnap.data());
+  }
+  
+  // Fallback: search by email
+  const q = query(collection(db, "users"), where("email", "==", uid));
+  const snapshot = await getDocs(q);
+  if (!snapshot.empty) {
+    return Object.assign({ id: snapshot.docs[0].id }, snapshot.docs[0].data());
+  }
+  
+  return null;
 };
 
 export const getAssignments = async () => {
@@ -210,7 +221,6 @@ export const updateTeacher = async (id: string, data: any) => {
     const index = mockData.users.findIndex(u => u.id === id);
     if (index > -1) {
       if (data.id && data.id !== id) {
-        // If ID is changing, we need to ensure it doesn't conflict
         const existing = mockData.users.find(u => u.id === data.id);
         if (existing) throw new Error("Username already exists");
       }
