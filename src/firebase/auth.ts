@@ -1,5 +1,5 @@
 import { auth, isMockMode } from "./config";
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, updatePassword } from "firebase/auth";
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, updatePassword, updateEmail } from "firebase/auth";
 import { mockData } from "./db";
 
 // Mock state
@@ -10,6 +10,13 @@ export const updateUserPassword = async (newPassword: string) => {
   if (isMockMode) return;
   if (auth.currentUser) {
     await updatePassword(auth.currentUser, newPassword);
+  }
+};
+
+export const updateUserEmail = async (newEmail: string) => {
+  if (isMockMode) return;
+  if (auth.currentUser) {
+    await updateEmail(auth.currentUser, newEmail);
   }
 };
 
