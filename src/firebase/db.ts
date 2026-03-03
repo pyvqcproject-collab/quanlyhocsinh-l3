@@ -53,13 +53,13 @@ export const getUser = async (uid: string) => {
     return mockData.users.find(u => u.id === uid || u.email === uid) || null;
   }
   
-  // Thử tìm theo ID trực tiếp
+  // 1. Thử tìm theo ID trực tiếp
   const docSnap = await getDoc(doc(db, "users", uid));
   if (docSnap.exists()) {
     return Object.assign({ id: docSnap.id }, docSnap.data());
   }
   
-  // Thử tìm theo Email (chuyển về chữ thường để chính xác)
+  // 2. Thử tìm theo Email (chuyển về chữ thường)
   const searchEmail = uid.toLowerCase().trim();
   const q = query(collection(db, "users"), where("email", "==", searchEmail));
   const snapshot = await getDocs(q);
