@@ -156,11 +156,22 @@ export default function TeacherDashboard() {
   const handleAddTeacher = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      const teacherEmail = `${newTeacher.username}@school.com`;
       if (editingTeacher) {
-        await updateTeacher(editingTeacher.id, { ...newTeacher, email: `${newTeacher.username}@school.com` });
+        await updateTeacher(editingTeacher.id, { ...newTeacher, email: teacherEmail });
+        
+        // Nếu đang sửa chính mình, cập nhật cả mật khẩu đăng nhập
+        if (editingTeacher.email === user?.email && newTeacher.password) {
+          try {
+            await updateUserPassword(newTeacher.password);
+          } catch (authError: any) {
+            console.error("Auth password update failed:", authError);
+            alert("Đã cập nhật thông tin trong DB nhưng không thể cập nhật mật khẩu đăng nhập. Có thể bạn cần đăng nhập lại để thực hiện việc này.");
+          }
+        }
         setEditingTeacher(null);
       } else {
-        await addTeacher({ ...newTeacher, email: `${newTeacher.username}@school.com` });
+        await addTeacher({ ...newTeacher, email: teacherEmail });
       }
       setIsAddingTeacher(false);
       setNewTeacher({ username: "", password: "", name: "", avatarUrl: "", isAdmin: false });
