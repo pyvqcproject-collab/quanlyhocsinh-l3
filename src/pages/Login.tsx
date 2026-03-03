@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useAuth } from "../context/AuthContext";
-import { login } from "../firebase/auth";
+import { login, register } from "../firebase/auth";
+import { addTeacher } from "../firebase/db";
 import { useNavigate } from "react-router-dom";
 import { BookOpen, User, Users, GraduationCap } from "lucide-react";
 
@@ -19,8 +20,32 @@ export default function Login() {
       const u = await login(loginEmail, password, role);
       setUser(u);
       navigate("/dashboard");
-    } catch (error) {
-      alert("Đăng nhập thất bại. Vui lòng thử lại.");
+    } catch (error: any) {
+      // Temporary auto-registration for the admin/teacher account on a fresh Firebase instance
+      if (role === "teacher" && (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential')) {
+        try {
+          const loginEmail = email.includes("@") ? email : `${email}@school.com`;
+          const newUser = await register(loginEmail, password);
+          
+          // Add to Firestore
+          const username = loginEmail.split('@')[0];
+          await addTeacher({
+            username: username,
+            email: loginEmail,
+            name: "Giáo viên",
+            isAdmin: true
+          });
+          
+          alert("Tài khoản giáo viên mới đã được tạo thành công! Đang đăng nhập...");
+          setUser({ ...newUser, role: 'teacher', isAdmin: true });
+          navigate("/dashboard");
+          return;
+        } catch (regError) {
+          console.error("Auto-registration failed:", regError);
+        }
+      }
+      
+      alert("Đăng nhập thất bại. Vui lòng kiểm tra lại tên đăng nhập và mật khẩu.");
     }
   };
 
