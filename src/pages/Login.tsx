@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { login, register } from "../firebase/auth";
-import { addTeacher } from "../firebase/db";
+import { addTeacher, getUser } from "../firebase/db";
 import { useNavigate } from "react-router-dom";
 import { BookOpen, User, Users, GraduationCap } from "lucide-react";
 
@@ -14,29 +14,55 @@ export default function Login() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    const loginEmail = email.includes("@") ? email : `${email}@school.com`;
+    
     try {
-      // Auto append @school.com if user didn't type it
-      const loginEmail = email.includes("@") ? email : `${email}@school.com`;
       const u = await login(loginEmail, password, role);
       setUser(u);
       navigate("/dashboard");
     } catch (error: any) {
-      // Temporary auto-registration for the admin/teacher account on a fresh Firebase instance
-      if (role === "teacher" && (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential')) {
+      console.error("Login error:", error.code, error.message);
+      
+      // Check if user exists in Firestore but not in Auth (or wrong password in Auth)
+      const firestoreUser = await getUser(loginEmail);
+      
+      if (firestoreUser) {
+        // Case 1: User exists in Firestore but login failed
+        if (error.code === 'auth/user-not-found') {
+          // Auto-register if password matches Firestore
+          if (firestoreUser.password === password) {
+            try {
+              const newUser = await register(loginEmail, password);
+              setUser({ ...newUser, ...firestoreUser });
+              navigate("/dashboard");
+              return;
+            } catch (regError) {
+              console.error("Auto-registration failed:", regError);
+            }
+          }
+        } else if (error.code === 'auth/invalid-credential') {
+          // Password mismatch in Auth
+          if (firestoreUser.password === password) {
+            alert("Mật khẩu của bạn đã được thay đổi trong hệ thống nhưng chưa được cập nhật vào hệ thống đăng nhập. Vui lòng thử lại bằng mật khẩu CŨ nhất của bạn, hoặc liên hệ quản trị viên.");
+          } else {
+            alert("Sai mật khẩu. Vui lòng kiểm tra lại.");
+          }
+          return;
+        }
+      }
+
+      // Case 2: Special case for first-time teacher setup
+      if (role === "teacher" && error.code === 'auth/user-not-found') {
         try {
-          const loginEmail = email.includes("@") ? email : `${email}@school.com`;
           const newUser = await register(loginEmail, password);
-          
-          // Add to Firestore
-          const username = loginEmail.split('@')[0];
           await addTeacher({
-            username: username,
+            username: loginEmail.split('@')[0],
             email: loginEmail,
             name: "Giáo viên",
-            isAdmin: true
+            isAdmin: true,
+            password: password // Store password in Firestore for sync
           });
-          
-          alert("Tài khoản giáo viên mới đã được tạo thành công! Đang đăng nhập...");
+          alert("Tài khoản giáo viên mới đã được tạo thành công!");
           setUser({ ...newUser, role: 'teacher', isAdmin: true });
           navigate("/dashboard");
           return;
