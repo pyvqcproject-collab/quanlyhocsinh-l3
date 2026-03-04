@@ -47,25 +47,28 @@ export default function Login() {
       
       if (firestoreUser) {
         // Case 1: User exists in Firestore but login failed
-        if (error.code === 'auth/user-not-found') {
-          // Auto-register if password matches Firestore
-          if (firestoreUser.password === password) {
-            try {
-              const newUser = await register(loginEmail, password);
-              setUser({ ...newUser, ...firestoreUser });
-              navigate("/dashboard");
-              return;
-            } catch (regError) {
+        if (firestoreUser.password === password) {
+          // Password matches Firestore. Try to auto-register in case they don't exist in Auth.
+          try {
+            const newUser = await register(loginEmail, password);
+            console.log("Auto-registered user:", newUser.email);
+            navigate("/dashboard");
+            return;
+          } catch (regError: any) {
+            if (regError.code === 'auth/email-already-in-use') {
+              // They exist in Auth, but the password they entered (which matches Firestore) 
+              // is NOT their Auth password.
+              alert("Mật khẩu của bạn đã được thay đổi trong hệ thống nhưng chưa được cập nhật vào hệ thống đăng nhập. Vui lòng thử lại bằng mật khẩu CŨ nhất của bạn, hoặc liên hệ quản trị viên.");
+            } else if (regError.code === 'auth/operation-not-allowed') {
+              alert("Tính năng đăng nhập bằng Email/Mật khẩu chưa được bật trong Firebase Console. Vui lòng liên hệ quản trị viên.");
+            } else {
               console.error("Auto-registration failed:", regError);
+              alert("Đã xảy ra lỗi khi đồng bộ tài khoản. Vui lòng thử lại.");
             }
+            return;
           }
-        } else if (error.code === 'auth/invalid-credential') {
-          // Password mismatch in Auth
-          if (firestoreUser.password === password) {
-            alert("Mật khẩu của bạn đã được thay đổi trong hệ thống nhưng chưa được cập nhật vào hệ thống đăng nhập. Vui lòng thử lại bằng mật khẩu CŨ nhất của bạn, hoặc liên hệ quản trị viên.");
-          } else {
-            alert("Sai mật khẩu. Vui lòng kiểm tra lại.");
-          }
+        } else {
+          alert("Sai mật khẩu. Vui lòng kiểm tra lại.");
           return;
         }
       }
