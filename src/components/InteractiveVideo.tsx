@@ -48,6 +48,9 @@ export default function InteractiveVideo({ videoUrl, questions, onComplete }: { 
       }, 500);
       
       return () => clearInterval(checkTime);
+    } else if (event.data === YouTube.PlayerState.PAUSED && currentQuestion) {
+      // Ensure it stays paused if a question is active
+      playerRef.current.pauseVideo();
     }
   };
 
