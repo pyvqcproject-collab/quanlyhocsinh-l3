@@ -4,7 +4,7 @@ import { updateUserPassword, updateUserEmail, logout } from "../firebase/auth";
 import { Plus, FileText, Video, PenTool, CheckCircle, Sparkles, BarChart2, Users, Edit, Trash2, Upload, Download, Undo2, Image as ImageIcon, Paperclip, Settings, X, CheckCircle2, XCircle } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import * as XLSX from "xlsx";
-
+import AttachmentManager, { Attachment } from "./AttachmentManager";
 import { useAuth } from "../context/AuthContext";
 
 export default function TeacherDashboard() {
@@ -20,7 +20,7 @@ export default function TeacherDashboard() {
   const [activeTab, setActiveTab] = useState("assignments");
   const [isCreating, setIsCreating] = useState(false);
   const [editingAssignment, setEditingAssignment] = useState<any>(null);
-  const [newAssignment, setNewAssignment] = useState({ title: "", description: "", imageUrl: "", type: "essay", dueDate: "", videoUrl: "", gradingType: "level", questions: [] as any[] });
+  const [newAssignment, setNewAssignment] = useState({ title: "", description: "", imageUrl: "", type: "essay", dueDate: "", videoUrl: "", gradingType: "level", questions: [] as any[], attachments: [] as Attachment[] });
   const [isAddingStudent, setIsAddingStudent] = useState(false);
   const [editingStudent, setEditingStudent] = useState<any>(null);
   const [newStudent, setNewStudent] = useState({ username: "", password: "", name: "", gender: "", birthdate: "", avatarUrl: "" });
@@ -99,7 +99,7 @@ export default function TeacherDashboard() {
 
   const handleEditAssignment = (a: any) => {
     setEditingAssignment(a);
-    setNewAssignment({ title: a.title || "", description: a.description || "", imageUrl: a.imageUrl || "", type: a.type || "essay", dueDate: a.dueDate || "", videoUrl: a.videoUrl || "", gradingType: a.gradingType || "level", questions: a.questions || [] });
+    setNewAssignment({ title: a.title || "", description: a.description || "", imageUrl: a.imageUrl || "", type: a.type || "essay", dueDate: a.dueDate || "", videoUrl: a.videoUrl || "", gradingType: a.gradingType || "level", questions: a.questions || [], attachments: a.attachments || [] });
     setIsCreating(true);
   };
 
@@ -468,8 +468,35 @@ export default function TeacherDashboard() {
                         <div key={i} className="bg-slate-50 p-4 rounded-xl border border-slate-200 mb-4 relative">
                           <button type="button" onClick={() => handleRemoveQuestion(i)} className="absolute top-2 right-2 text-rose-500 hover:bg-rose-50 p-1 rounded"><Trash2 className="w-4 h-4" /></button>
                           <div className="mb-3">
-                            <label className="block text-xs font-medium text-slate-500 mb-1">Thời gian xuất hiện (giây)</label>
-                            <input type="number" min="0" placeholder="Ví dụ: 60 (xuất hiện ở phút thứ 1)" value={q.time} onChange={e => handleQuestionChange(i, 'time', parseInt(e.target.value) || 0)} className="w-full px-3 py-2 rounded-lg border border-slate-200" required />
+                            <label className="block text-xs font-medium text-slate-500 mb-1">Thời gian xuất hiện (HH:MM:SS)</label>
+                            <input 
+                              type="text" 
+                              placeholder="Ví dụ: 00:05:10 (5 phút 10 giây)" 
+                              value={
+                                (() => {
+                                  const totalSeconds = q.time || 0;
+                                  const h = Math.floor(totalSeconds / 3600).toString().padStart(2, '0');
+                                  const m = Math.floor((totalSeconds % 3600) / 60).toString().padStart(2, '0');
+                                  const s = (totalSeconds % 60).toString().padStart(2, '0');
+                                  return `${h}:${m}:${s}`;
+                                })()
+                              } 
+                              onChange={e => {
+                                const val = e.target.value;
+                                const parts = val.split(':');
+                                let seconds = 0;
+                                if (parts.length === 3) {
+                                  seconds = parseInt(parts[0]) * 3600 + parseInt(parts[1]) * 60 + parseInt(parts[2]);
+                                } else if (parts.length === 2) {
+                                  seconds = parseInt(parts[0]) * 60 + parseInt(parts[1]);
+                                } else if (parts.length === 1) {
+                                  seconds = parseInt(parts[0]);
+                                }
+                                handleQuestionChange(i, 'time', isNaN(seconds) ? 0 : seconds);
+                              }} 
+                              className="w-full px-3 py-2 rounded-lg border border-slate-200" 
+                              required 
+                            />
                           </div>
                           <input type="text" placeholder="Nội dung câu hỏi" value={q.q} onChange={e => handleQuestionChange(i, 'q', e.target.value)} className="w-full px-3 py-2 rounded-lg border border-slate-200 mb-2" required />
                           <div className="grid grid-cols-2 gap-2">
@@ -509,6 +536,7 @@ export default function TeacherDashboard() {
                     ))}
                   </div>
                 )}
+                <AttachmentManager attachments={newAssignment.attachments} onChange={attachments => setNewAssignment({...newAssignment, attachments})} />
                 <div className="flex justify-end gap-3">
                   <button type="button" onClick={() => { setIsCreating(false); setEditingAssignment(null); }} className="px-4 py-2 text-slate-600">Hủy</button>
                   <button type="submit" className="bg-sky-500 text-white px-6 py-2 rounded-xl">Lưu</button>
