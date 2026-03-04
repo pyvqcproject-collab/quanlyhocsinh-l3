@@ -70,9 +70,18 @@ export default function Dashboard() {
         {user?.role === "student" && <StudentDashboard />}
         {user?.role === "parent" && <ParentDashboard />}
         {!user?.role && (
-          <div className="text-center py-20">
-            <p className="text-slate-500">Đang xác định quyền hạn của bạn...</p>
-            <p className="text-xs text-slate-400 mt-2">Email: {user?.email}</p>
+          <div className="text-center py-20 bg-white rounded-3xl shadow-sm border border-slate-100 max-w-lg mx-auto mt-10">
+            <div className="w-16 h-16 bg-amber-100 text-amber-500 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">⚠️</div>
+            <h2 className="text-xl font-bold text-slate-800 mb-2">Chưa xác định được quyền hạn</h2>
+            <p className="text-slate-500 mb-2">Hệ thống không tìm thấy vai trò (Giáo viên/Học sinh) cho tài khoản của bạn.</p>
+            <p className="text-sm font-medium text-slate-400 mb-8">Email: {user?.email}</p>
+            
+            <button onClick={handleLogout} className="bg-sky-500 hover:bg-sky-600 text-white px-8 py-3 rounded-xl font-bold shadow-md transition-all">
+              Đăng xuất và Đăng nhập lại
+            </button>
+            <p className="text-xs text-slate-400 mt-6 px-6">
+              Mẹo: Ở màn hình đăng nhập, hãy nhớ <b>chọn đúng vai trò</b> (Giáo viên hoặc Học sinh) trước khi bấm Đăng nhập. Hệ thống sẽ tự động sửa lỗi và cấp quyền cho bạn.
+            </p>
           </div>
         )}
       </main>
