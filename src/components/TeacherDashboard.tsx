@@ -1,195 +1,167 @@
 import React, { useState, useEffect } from "react";
-import { getAssignments, getSubmissions, createAssignment, gradeSubmission, getStudents, addStudent, updateAssignment, deleteAssignment, updateStudent, deleteStudent, undoLastAction, getPosts, createPost, deletePost, updatePost, getAppSettings, updateAppSettings, getTeachers, addTeacher, updateTeacher, deleteTeacher } from "../firebase/db";
-import { updateUserPassword, updateUserEmail, logout } from "../firebase/auth";
-import { Plus, FileText, Video, PenTool, CheckCircle, Sparkles, BarChart2, Users, Edit, Trash2, Upload, Download, Undo2, Image as ImageIcon, Paperclip, Settings, X, CheckCircle2, XCircle } from "lucide-react";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
+import { getStudents, getTeachers, addStudent, addTeacher, updateStudent, updateTeacher, deleteStudent, deleteTeacher, getAssignments, createAssignment, updateAssignment, deleteAssignment, getSubmissions, gradeSubmission, getPosts, createPost, deletePost, updatePost, getAppSettings, updateAppSettings, undoLastAction } from "../firebase/db";
+import { Plus, Edit, Trash2, CheckCircle, XCircle, FileText, MessageSquare, Download, Upload, Undo2, Settings, Image as ImageIcon } from "lucide-react";
 import * as XLSX from "xlsx";
-
 import { useAuth } from "../context/AuthContext";
 
 export default function TeacherDashboard() {
   const { user } = useAuth();
-  const [assignments, setAssignments] = useState<any[]>([]);
-  const [submissions, setSubmissions] = useState<any[]>([]);
+  const [activeTab, setActiveTab] = useState("students");
   const [students, setStudents] = useState<any[]>([]);
   const [teachers, setTeachers] = useState<any[]>([]);
+  const [assignments, setAssignments] = useState<any[]>([]);
+  const [submissions, setSubmissions] = useState<any[]>([]);
   const [posts, setPosts] = useState<any[]>([]);
-  const [appSettings, setAppSettings] = useState<any>({});
-  const [isEditingSettings, setIsEditingSettings] = useState(false);
-  const [settingsForm, setSettingsForm] = useState({ teacherName: "", schoolName: "", className: "", avatarUrl: "", appName: "" });
-  const [activeTab, setActiveTab] = useState("assignments");
-  const [isCreating, setIsCreating] = useState(false);
-  const [editingAssignment, setEditingAssignment] = useState<any>(null);
-  const [newAssignment, setNewAssignment] = useState({ title: "", description: "", imageUrl: "", type: "essay", dueDate: "", videoUrl: "", gradingType: "level", questions: [] as any[] });
+  const [appSettings, setAppSettings] = useState<any>({ teacherName: "", schoolName: "", className: "", avatarUrl: "", appName: "" });
+  
   const [isAddingStudent, setIsAddingStudent] = useState(false);
-  const [editingStudent, setEditingStudent] = useState<any>(null);
-  const [newStudent, setNewStudent] = useState({ username: "", password: "", name: "", gender: "", birthdate: "", avatarUrl: "" });
   const [isAddingTeacher, setIsAddingTeacher] = useState(false);
-  const [editingTeacher, setEditingTeacher] = useState<any>(null);
-  const [newTeacher, setNewTeacher] = useState({ username: "", password: "", name: "", avatarUrl: "", isAdmin: false });
-  const [newPost, setNewPost] = useState<{ content: string, imageUrl: string, videoUrl: string, files: { name: string, type: string, data: string }[] }>({ content: "", imageUrl: "", videoUrl: "", files: [] });
+  const [isCreatingAssignment, setIsCreatingAssignment] = useState(false);
   const [isCreatingPost, setIsCreatingPost] = useState(false);
+  
+  const [editingStudent, setEditingStudent] = useState<any>(null);
+  const [editingTeacher, setEditingTeacher] = useState<any>(null);
+  const [editingAssignment, setEditingAssignment] = useState<any>(null);
   const [editingPost, setEditingPost] = useState<any>(null);
+  
+  const [newStudent, setNewStudent] = useState({ username: "", name: "", password: "", gender: "", birthdate: "" });
+  const [newTeacher, setNewTeacher] = useState({ username: "", name: "", password: "", avatarUrl: "", isAdmin: false });
+  const [newAssignment, setNewAssignment] = useState({ title: "", description: "", dueDate: "", type: "quiz" });
+  const [newPost, setNewPost] = useState({ content: "", type: "announcement", files: [] as any[] });
+  
   const [studentSearchTerm, setStudentSearchTerm] = useState("");
 
-  useEffect(() => {
-    console.log("TeacherDashboard - Current User:", user);
-    console.log("TeacherDashboard - Teachers List:", teachers);
-  }, [user, teachers]);
-
-  useEffect(() => {
-    loadData();
-  }, []);
-
   const loadData = async () => {
-    console.log("Loading dashboard data...");
-    try {
-      const as = await getAssignments();
-      const su = await getSubmissions();
-      const st = await getStudents();
-      const te = await getTeachers();
-      const po = await getPosts();
-      const set = await getAppSettings();
-      console.log("Data loaded:", { assignments: as.length, students: st.length, teachers: te.length });
-      setAssignments(as);
-      setSubmissions(su);
-      setStudents(st);
-      setTeachers(te);
-      setPosts(po);
-      setAppSettings(set);
-      setSettingsForm({
-        teacherName: (set as any).teacherName || "",
-        schoolName: (set as any).schoolName || "",
-        className: (set as any).className || "",
-        avatarUrl: (set as any).avatarUrl || "",
-        appName: (set as any).appName || ""
-      });
-    } catch (error) {
-      console.error("Failed to load data:", error);
-    }
+    const [s, t, a, sub, p, settings] = await Promise.all([
+      getStudents(), getTeachers(), getAssignments(), getSubmissions(), getPosts(), getAppSettings()
+    ]);
+    setStudents(s);
+    setTeachers(t);
+    setAssignments(a);
+    setSubmissions(sub);
+    setPosts(p);
+    setAppSettings(settings);
   };
+
+  useEffect(() => { loadData(); }, []);
 
   const handleUndo = () => {
     if (undoLastAction()) {
       loadData();
-    }
-  };
-
-  const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      if (editingAssignment) {
-        await updateAssignment(editingAssignment.id, newAssignment);
-        setEditingAssignment(null);
-      } else {
-        await createAssignment({ ...newAssignment, status: "active" });
-      }
-      setIsCreating(false);
-      setNewAssignment({ title: "", description: "", imageUrl: "", type: "essay", dueDate: "", videoUrl: "", gradingType: "level", questions: [] });
-      loadData();
-    } catch (error: any) {
-      alert("Lỗi: " + error.message);
-    }
-  };
-
-  const handleDeleteAssignment = async (id: string) => {
-    await deleteAssignment(id);
-    loadData();
-  };
-
-  const handleEditAssignment = (a: any) => {
-    setEditingAssignment(a);
-    setNewAssignment({ title: a.title || "", description: a.description || "", imageUrl: a.imageUrl || "", type: a.type || "essay", dueDate: a.dueDate || "", videoUrl: a.videoUrl || "", gradingType: a.gradingType || "level", questions: a.questions || [] });
-    setIsCreating(true);
-  };
-
-  const handleAddQuestion = () => {
-    setNewAssignment({
-      ...newAssignment,
-      questions: [...newAssignment.questions, { q: "", options: ["", "", "", ""], answer: "", time: 0 }]
-    });
-  };
-
-  const handleQuestionChange = (index: number, field: string, value: any, optIndex?: number) => {
-    const updated = [...newAssignment.questions];
-    if (field === 'options' && optIndex !== undefined) {
-      updated[index].options[optIndex] = value;
+      alert("Đã hoàn tác hành động cuối cùng!");
     } else {
-      updated[index][field] = value;
+      alert("Không có hành động nào để hoàn tác.");
     }
-    setNewAssignment({ ...newAssignment, questions: updated });
-  };
-
-  const handleRemoveQuestion = (index: number) => {
-    const updated = newAssignment.questions.filter((_, i) => i !== index);
-    setNewAssignment({ ...newAssignment, questions: updated });
   };
 
   const handleAddStudent = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const studentId = newStudent.username.toLowerCase();
       if (editingStudent) {
-        await updateStudent(editingStudent.id, { ...newStudent, id: studentId, email: `${studentId}@school.com` });
-        setEditingStudent(null);
+        await updateStudent(editingStudent.id, { ...newStudent, email: `${newStudent.username.toLowerCase()}@school.com` });
       } else {
-        await addStudent({ ...newStudent, id: studentId, email: `${studentId}@school.com` });
+        await addStudent({ ...newStudent, email: `${newStudent.username.toLowerCase()}@school.com` });
       }
       setIsAddingStudent(false);
-      setNewStudent({ username: "", password: "", name: "", gender: "", birthdate: "", avatarUrl: "" });
+      setEditingStudent(null);
+      setNewStudent({ username: "", name: "", password: "", gender: "", birthdate: "" });
       loadData();
     } catch (error: any) {
-      alert("Lỗi: " + error.message);
+      alert(error.message);
     }
-  };
-
-  const handleDeleteStudent = async (id: string) => {
-    await deleteStudent(id);
-    loadData();
-  };
-
-  const handleEditStudent = (s: any) => {
-    setEditingStudent(s);
-    setNewStudent({ username: s.id.startsWith('student-') ? s.email.split('@')[0] : s.id, password: s.password || "", name: s.name || "", gender: s.gender || "", birthdate: s.birthdate || "", avatarUrl: s.avatarUrl || "" });
-    setIsAddingStudent(true);
   };
 
   const handleAddTeacher = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const teacherId = newTeacher.username.toLowerCase();
-      const teacherEmail = `${teacherId}@school.com`;
       if (editingTeacher) {
-        await updateTeacher(editingTeacher.id, { ...newTeacher, id: teacherId, email: teacherEmail });
-        if (editingTeacher.email?.toLowerCase() === user?.email?.toLowerCase()) {
-          try {
-            if (newTeacher.password) await updateUserPassword(newTeacher.password);
-            if (teacherEmail !== editingTeacher.email?.toLowerCase()) await updateUserEmail(teacherEmail);
-          } catch (authError: any) {
-            alert("Đã cập nhật DB nhưng Auth yêu cầu bạn đăng xuất và đăng nhập lại để đổi mật khẩu.");
-          }
-        }
-        setEditingTeacher(null);
+        await updateTeacher(editingTeacher.id, { ...newTeacher, email: `${newTeacher.username.toLowerCase()}@school.com` });
       } else {
-        await addTeacher({ ...newTeacher, id: teacherId, email: teacherEmail });
+        await addTeacher({ ...newTeacher, email: `${newTeacher.username.toLowerCase()}@school.com` });
       }
       setIsAddingTeacher(false);
-      setNewTeacher({ username: "", password: "", name: "", avatarUrl: "", isAdmin: false });
+      setEditingTeacher(null);
+      setNewTeacher({ username: "", name: "", password: "", avatarUrl: "", isAdmin: false });
       loadData();
     } catch (error: any) {
-      alert("Lỗi: " + error.message);
+      alert(error.message);
+    }
+  };
+
+  const handleCreateAssignment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (editingAssignment) {
+      await updateAssignment(editingAssignment.id, newAssignment);
+    } else {
+      await createAssignment({ ...newAssignment, createdAt: new Date().toISOString() });
+    }
+    setIsCreatingAssignment(false);
+    setEditingAssignment(null);
+    setNewAssignment({ title: "", description: "", dueDate: "", type: "quiz" });
+    loadData();
+  };
+
+  const handleCreatePost = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (editingPost) {
+      await updatePost(editingPost.id, newPost);
+    } else {
+      await createPost({ ...newPost, authorId: user?.id, authorName: user?.name || "Giáo viên" });
+    }
+    setIsCreatingPost(false);
+    setEditingPost(null);
+    setNewPost({ content: "", type: "announcement", files: [] });
+    loadData();
+  };
+
+  const handleDeleteStudent = async (id: string) => {
+    if (confirm("Bạn có chắc chắn muốn xóa học sinh này?")) {
+      await deleteStudent(id);
+      loadData();
     }
   };
 
   const handleDeleteTeacher = async (id: string) => {
-    await deleteTeacher(id);
-    loadData();
+    if (confirm("Bạn có chắc chắn muốn xóa giáo viên này?")) {
+      await deleteTeacher(id);
+      loadData();
+    }
+  };
+
+  const handleDeleteAssignment = async (id: string) => {
+    if (confirm("Bạn có chắc chắn muốn xóa bài tập này?")) {
+      await deleteAssignment(id);
+      loadData();
+    }
+  };
+
+  const handleDeletePost = async (id: string) => {
+    if (confirm("Bạn có chắc chắn muốn xóa bài đăng này?")) {
+      await deletePost(id);
+      loadData();
+    }
+  };
+
+  const handleEditStudent = (s: any) => {
+    setEditingStudent(s);
+    setNewStudent({ username: s.id.startsWith('hs') ? s.email.split('@')[0] : s.id, name: s.name, password: s.password || "", gender: s.gender || "", birthdate: s.birthdate || "" });
+    setIsAddingStudent(true);
   };
 
   const handleEditTeacher = (t: any) => {
     setEditingTeacher(t);
     setNewTeacher({ username: t.id.startsWith('teacher-') ? t.email.split('@')[0] : t.id, password: t.password || "", name: t.name || "", avatarUrl: t.avatarUrl || "", isAdmin: t.isAdmin || false });
     setIsAddingTeacher(true);
+  };
+
+  const downloadStudentTemplate = () => {
+    const ws = XLSX.utils.json_to_sheet([
+      { username: "HS001", name: "Nguyễn Văn A", password: "123", gender: "Nam", birthdate: "2015-01-01" },
+      { username: "HS002", name: "Trần Thị B", password: "123", gender: "Nữ", birthdate: "2015-02-02" }
+    ]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "HocSinh");
+    XLSX.writeFile(wb, "Mau_Nhap_Hoc_Sinh.xlsx");
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -227,15 +199,6 @@ export default function TeacherDashboard() {
     XLSX.writeFile(wb, "Ket_Qua_Hoc_Tap.xlsx");
   };
 
-  const handleCreatePost = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (editingPost) await updatePost(editingPost.id, newPost);
-    else await createPost(newPost);
-    setIsCreatingPost(false);
-    setNewPost({ content: "", imageUrl: "", videoUrl: "", files: [] });
-    loadData();
-  };
-
   const handleFileUploadPost = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
@@ -257,26 +220,43 @@ export default function TeacherDashboard() {
 
   const handleSaveSettings = async (e: React.FormEvent) => {
     e.preventDefault();
-    await updateAppSettings(settingsForm);
-    setIsEditingSettings(false);
-    loadData();
+    await updateAppSettings(appSettings);
+    alert("Đã lưu cài đặt!");
+    window.dispatchEvent(new Event('appSettingsChanged'));
   };
 
-  const suggestComment = async (content: string, studentName: string) => {
-    try {
-      const res = await fetch("/api/ai/suggest-comment", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content, studentName }) });
-      return await res.json();
-    } catch (e) {
-      return { comment: "Bài làm tốt.", level: "Hoàn thành" };
+  const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        if (event.target?.result) {
+          setAppSettings({ ...appSettings, avatarUrl: event.target.result as string });
+        }
+      };
+      reader.readAsDataURL(file);
     }
   };
 
-  const chartData = assignments.map(a => {
-    const subs = submissions.filter(s => s.assignmentId === a.id && s.status === "graded");
+  const handleTeacherAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        if (event.target?.result) {
+          setNewTeacher({ ...newTeacher, avatarUrl: event.target.result as string });
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const analyticsData = assignments.map(a => {
+    const subs = submissions.filter(s => s.assignmentId === a.id);
     return {
-      name: a.title.substring(0, 10),
-      'Tốt': subs.filter(s => s.level === "Hoàn thành tốt" || (s.score >= 8)).length,
-      'Đạt': subs.filter(s => s.level === "Hoàn thành" || (s.score >= 5 && s.score < 8)).length,
+      title: a.title,
+      'Hoàn thành tốt': subs.filter(s => s.level === "Hoàn thành tốt" || s.score >= 8).length,
+      'Hoàn thành': subs.filter(s => s.level === "Hoàn thành" || (s.score >= 5 && s.score < 8)).length,
       'Chưa đạt': subs.filter(s => s.level === "Chưa hoàn thành" || (s.score < 5)).length,
     };
   });
@@ -305,6 +285,7 @@ export default function TeacherDashboard() {
             <div className="flex gap-3">
               <input type="text" placeholder="Tìm kiếm..." value={studentSearchTerm} onChange={(e) => setStudentSearchTerm(e.target.value)} className="px-4 py-2 rounded-xl border border-slate-200 outline-none" />
               <button onClick={exportResults} className="bg-indigo-500 text-white px-4 py-2 rounded-xl font-medium flex items-center gap-2 transition-colors"><Download className="w-5 h-5" /> Xuất Excel</button>
+              <button onClick={downloadStudentTemplate} className="bg-slate-100 text-slate-600 hover:bg-slate-200 px-4 py-2 rounded-xl font-medium flex items-center gap-2 transition-colors"><Download className="w-5 h-5" /> Tải mẫu</button>
               <label className="bg-emerald-500 text-white px-4 py-2 rounded-xl font-medium flex items-center gap-2 transition-colors cursor-pointer"><Upload className="w-5 h-5" /> Nhập Excel<input type="file" className="hidden" onChange={handleFileUpload} /></label>
               <button onClick={() => setIsAddingStudent(true)} className="bg-sky-500 text-white px-4 py-2 rounded-xl font-medium flex items-center gap-2 transition-colors"><Plus className="w-5 h-5" /> Thêm</button>
             </div>
@@ -381,6 +362,19 @@ export default function TeacherDashboard() {
                   <input type="checkbox" id="isAdmin" checked={newTeacher.isAdmin} onChange={e => setNewTeacher({...newTeacher, isAdmin: e.target.checked})} />
                   <label htmlFor="isAdmin">Quyền Admin</label>
                 </div>
+                <div className="sm:col-span-2 flex items-center gap-4">
+                  {newTeacher.avatarUrl ? (
+                    <img src={newTeacher.avatarUrl} alt="Avatar" className="w-16 h-16 rounded-xl object-cover" />
+                  ) : (
+                    <div className="w-16 h-16 bg-slate-100 rounded-xl flex items-center justify-center text-slate-400">
+                      <ImageIcon className="w-8 h-8" />
+                    </div>
+                  )}
+                  <label className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-xl cursor-pointer transition-colors text-sm font-medium">
+                    Tải ảnh lên
+                    <input type="file" className="hidden" accept="image/*" onChange={handleTeacherAvatarUpload} />
+                  </label>
+                </div>
                 <div className="sm:col-span-2 flex justify-end gap-3">
                   <button type="button" onClick={() => { setIsAddingTeacher(false); setEditingTeacher(null); }} className="px-4 py-2 text-slate-600">Hủy</button>
                   <button type="submit" className="bg-sky-500 text-white px-6 py-2 rounded-xl">Lưu</button>
@@ -393,6 +387,7 @@ export default function TeacherDashboard() {
             <table className="w-full text-left">
               <thead className="bg-slate-50 border-b border-slate-100">
                 <tr>
+                  <th className="p-4 font-semibold text-slate-600">Ảnh</th>
                   <th className="p-4 font-semibold text-slate-600">Tên đăng nhập</th>
                   <th className="p-4 font-semibold text-slate-600">Họ tên</th>
                   <th className="p-4 font-semibold text-slate-600">Quyền</th>
@@ -402,9 +397,20 @@ export default function TeacherDashboard() {
               <tbody>
                 {teachers.map(t => (
                   <tr key={t.id} className="border-b border-slate-50 hover:bg-slate-50">
+                    <td className="p-4">
+                      {t.avatarUrl ? (
+                        <img src={t.avatarUrl} alt={t.name} className="w-10 h-10 rounded-full object-cover" />
+                      ) : (
+                        <div className="w-10 h-10 bg-sky-100 text-sky-600 rounded-full flex items-center justify-center font-bold">
+                          {t.name?.charAt(0) || 'T'}
+                        </div>
+                      )}
+                    </td>
                     <td className="p-4 font-medium text-slate-800">{t.id}</td>
                     <td className="p-4 text-slate-600">{t.name}</td>
-                    <td className="p-4 text-slate-600">{t.isAdmin ? "Admin" : "Giáo viên"}</td>
+                    <td className="p-4 text-slate-600">
+                      {t.isAdmin ? <span className="bg-amber-100 text-amber-600 px-2 py-1 rounded text-xs font-bold">Admin</span> : "Giáo viên"}
+                    </td>
                     <td className="p-4 text-right">
                       <div className="flex justify-end gap-2">
                         <button onClick={() => handleEditTeacher(t)} className="p-2 text-amber-500 hover:bg-amber-50 rounded-lg"><Edit className="w-4 h-4" /></button>
@@ -422,52 +428,27 @@ export default function TeacherDashboard() {
       {activeTab === "assignments" && (
         <div className="space-y-6">
           <div className="flex justify-between items-center">
-            <h2 className="text-2xl font-bold text-slate-800">Bài tập</h2>
-            <button onClick={() => setIsCreating(true)} className="bg-sky-500 text-white px-4 py-2 rounded-xl font-medium flex items-center gap-2 transition-colors"><Plus className="w-5 h-5" /> Giao bài</button>
+            <h2 className="text-2xl font-bold text-slate-800">Quản lý bài tập</h2>
+            <button onClick={() => setIsCreatingAssignment(true)} className="bg-sky-500 text-white px-4 py-2 rounded-xl font-medium flex items-center gap-2 transition-colors"><Plus className="w-5 h-5" /> Giao bài mới</button>
           </div>
 
-          {isCreating && (
+          {isCreatingAssignment && (
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-              <h3 className="text-lg font-bold mb-4">{editingAssignment ? "Sửa bài tập" : "Giao bài tập"}</h3>
-              <form onSubmit={handleCreate} className="space-y-4">
-                <input type="text" placeholder="Tiêu đề" value={newAssignment.title} onChange={e => setNewAssignment({...newAssignment, title: e.target.value})} className="w-full px-4 py-2 rounded-xl border border-slate-200 outline-none" required />
-                <textarea placeholder="Mô tả" value={newAssignment.description} onChange={e => setNewAssignment({...newAssignment, description: e.target.value})} className="w-full px-4 py-2 rounded-xl border border-slate-200 outline-none min-h-[100px]"></textarea>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <select value={newAssignment.type} onChange={e => setNewAssignment({...newAssignment, type: e.target.value})} className="px-4 py-2 rounded-xl border border-slate-200 outline-none">
-                    <option value="essay">Tự luận</option>
-                    <option value="quiz">Trắc nghiệm</option>
-                    <option value="video">Video</option>
-                    <option value="drawing">Vẽ tranh</option>
-                  </select>
-                  <select value={newAssignment.gradingType} onChange={e => setNewAssignment({...newAssignment, gradingType: e.target.value})} className="px-4 py-2 rounded-xl border border-slate-200 outline-none">
-                    <option value="level">Mức độ</option>
-                    <option value="score">Điểm số</option>
-                  </select>
+              <h3 className="text-lg font-bold mb-4">{editingAssignment ? "Sửa bài tập" : "Giao bài tập mới"}</h3>
+              <form onSubmit={handleCreateAssignment} className="space-y-4">
+                <input type="text" placeholder="Tiêu đề bài tập" value={newAssignment.title} onChange={e => setNewAssignment({...newAssignment, title: e.target.value})} className="w-full px-4 py-2 rounded-xl border border-slate-200 outline-none" required />
+                <textarea placeholder="Mô tả chi tiết..." value={newAssignment.description} onChange={e => setNewAssignment({...newAssignment, description: e.target.value})} className="w-full px-4 py-2 rounded-xl border border-slate-200 outline-none h-32" required />
+                <div className="flex gap-4">
                   <input type="date" value={newAssignment.dueDate} onChange={e => setNewAssignment({...newAssignment, dueDate: e.target.value})} className="px-4 py-2 rounded-xl border border-slate-200 outline-none" required />
+                  <select value={newAssignment.type} onChange={e => setNewAssignment({...newAssignment, type: e.target.value})} className="px-4 py-2 rounded-xl border border-slate-200 outline-none">
+                    <option value="quiz">Trắc nghiệm</option>
+                    <option value="essay">Tự luận</option>
+                    <option value="project">Dự án</option>
+                  </select>
                 </div>
-                {newAssignment.type === 'quiz' && (
-                  <div className="pt-4 border-t border-slate-100">
-                    <button type="button" onClick={handleAddQuestion} className="text-sky-600 font-medium mb-4">+ Thêm câu hỏi</button>
-                    {newAssignment.questions.map((q, i) => (
-                      <div key={i} className="bg-slate-50 p-4 rounded-xl border border-slate-200 mb-4 relative">
-                        <button type="button" onClick={() => handleRemoveQuestion(i)} className="absolute top-2 right-2 text-rose-500"><Trash2 className="w-4 h-4" /></button>
-                        <input type="text" placeholder="Câu hỏi" value={q.q} onChange={e => handleQuestionChange(i, 'q', e.target.value)} className="w-full px-3 py-2 rounded-lg border border-slate-200 mb-2" required />
-                        <div className="grid grid-cols-2 gap-2">
-                          {q.options.map((opt: string, optIdx: number) => (
-                            <input key={optIdx} type="text" placeholder={`Lựa chọn ${optIdx + 1}`} value={opt} onChange={e => handleQuestionChange(i, 'options', e.target.value, optIdx)} className="px-3 py-2 rounded-lg border border-slate-200" required />
-                          ))}
-                        </div>
-                        <select value={q.answer} onChange={e => handleQuestionChange(i, 'answer', e.target.value)} className="w-full px-3 py-2 rounded-lg border border-slate-200 mt-2" required>
-                          <option value="">Đáp án đúng</option>
-                          {q.options.map((opt: string) => opt && <option key={opt} value={opt}>{opt}</option>)}
-                        </select>
-                      </div>
-                    ))}
-                  </div>
-                )}
                 <div className="flex justify-end gap-3">
-                  <button type="button" onClick={() => { setIsCreating(false); setEditingAssignment(null); }} className="px-4 py-2 text-slate-600">Hủy</button>
-                  <button type="submit" className="bg-sky-500 text-white px-6 py-2 rounded-xl">Lưu</button>
+                  <button type="button" onClick={() => { setIsCreatingAssignment(false); setEditingAssignment(null); }} className="px-4 py-2 text-slate-600">Hủy</button>
+                  <button type="submit" className="bg-sky-500 text-white px-6 py-2 rounded-xl">Lưu bài tập</button>
                 </div>
               </form>
             </div>
@@ -475,15 +456,21 @@ export default function TeacherDashboard() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {assignments.map(a => (
-              <div key={a.id} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
-                <h3 className="font-bold text-slate-800 mb-1">{a.title}</h3>
-                <p className="text-xs text-slate-500 mb-3">Hạn: {a.dueDate}</p>
-                <div className="flex justify-between items-center pt-4 border-t border-slate-100">
-                  <span className="text-sm font-medium text-slate-600">Đã nộp: {submissions.filter(s => s.assignmentId === a.id).length}</span>
+              <div key={a.id} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 hover:shadow-md transition-shadow">
+                <div className="flex justify-between items-start mb-4">
+                  <div className="p-3 bg-sky-50 text-sky-500 rounded-xl"><FileText className="w-6 h-6" /></div>
                   <div className="flex gap-2">
-                    <button onClick={() => handleEditAssignment(a)} className="p-2 text-amber-500 hover:bg-amber-50 rounded-lg"><Edit className="w-4 h-4" /></button>
+                    <button onClick={() => { setEditingAssignment(a); setNewAssignment(a); setIsCreatingAssignment(true); }} className="p-2 text-amber-500 hover:bg-amber-50 rounded-lg"><Edit className="w-4 h-4" /></button>
                     <button onClick={() => handleDeleteAssignment(a.id)} className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg"><Trash2 className="w-4 h-4" /></button>
                   </div>
+                </div>
+                <h3 className="font-bold text-lg mb-2">{a.title}</h3>
+                <p className="text-slate-500 text-sm mb-4 line-clamp-2">{a.description}</p>
+                <div className="flex justify-between items-center text-sm font-medium">
+                  <span className={`px-3 py-1 rounded-full ${a.type === 'quiz' ? 'bg-purple-50 text-purple-600' : a.type === 'essay' ? 'bg-blue-50 text-blue-600' : 'bg-emerald-50 text-emerald-600'}`}>
+                    {a.type === 'quiz' ? 'Trắc nghiệm' : a.type === 'essay' ? 'Tự luận' : 'Dự án'}
+                  </span>
+                  <span className="text-rose-500">Hạn: {a.dueDate}</span>
                 </div>
               </div>
             ))}
@@ -494,56 +481,98 @@ export default function TeacherDashboard() {
       {activeTab === "submissions" && (
         <div className="space-y-6">
           <h2 className="text-2xl font-bold text-slate-800">Chấm bài</h2>
-          <div className="grid gap-6">
-            {submissions.filter(s => s.status === "submitted").map(sub => {
-              const student = students.find(st => st.id === sub.studentId);
-              const assignment = assignments.find(a => a.id === sub.assignmentId);
-              return (
-                <SubmissionCard key={sub.id} sub={sub} assignment={assignment} studentName={student?.name || sub.studentId} onGrade={handleGrade} suggestComment={suggestComment} />
-              );
-            })}
-            {submissions.filter(s => s.status === "submitted").length === 0 && (
-              <div className="text-center py-12 bg-white rounded-2xl border border-slate-200 border-dashed">
-                <CheckCircle className="w-12 h-12 text-emerald-400 mx-auto mb-3" />
-                <p className="text-slate-500 font-medium">Đã chấm xong tất cả bài tập.</p>
-              </div>
-            )}
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+            <table className="w-full text-left">
+              <thead className="bg-slate-50 border-b border-slate-100">
+                <tr>
+                  <th className="p-4 font-semibold text-slate-600">Học sinh</th>
+                  <th className="p-4 font-semibold text-slate-600">Bài tập</th>
+                  <th className="p-4 font-semibold text-slate-600">Trạng thái</th>
+                  <th className="p-4 font-semibold text-slate-600">Đánh giá</th>
+                </tr>
+              </thead>
+              <tbody>
+                {submissions.map(s => {
+                  const student = students.find(st => st.id === s.studentId);
+                  const assignment = assignments.find(a => a.id === s.assignmentId);
+                  return (
+                    <tr key={s.id} className="border-b border-slate-50 hover:bg-slate-50">
+                      <td className="p-4 font-medium text-slate-800">{student?.name || s.studentId}</td>
+                      <td className="p-4 text-slate-600">{assignment?.title || s.assignmentId}</td>
+                      <td className="p-4">
+                        {s.status === "graded" ? (
+                          <span className="flex items-center gap-1 text-emerald-600 text-sm font-bold"><CheckCircle className="w-4 h-4" /> Đã chấm</span>
+                        ) : (
+                          <span className="flex items-center gap-1 text-amber-500 text-sm font-bold"><XCircle className="w-4 h-4" /> Chờ chấm</span>
+                        )}
+                      </td>
+                      <td className="p-4">
+                        {s.status === "graded" ? (
+                          <span className="font-bold text-slate-700">{s.level || `${s.score} điểm`}</span>
+                        ) : (
+                          <div className="flex gap-2">
+                            <button onClick={() => handleGrade(s.id, { level: "Hoàn thành tốt" })} className="px-3 py-1 bg-emerald-50 text-emerald-600 rounded-lg text-sm font-bold hover:bg-emerald-100">Tốt</button>
+                            <button onClick={() => handleGrade(s.id, { level: "Hoàn thành" })} className="px-3 py-1 bg-sky-50 text-sky-600 rounded-lg text-sm font-bold hover:bg-sky-100">Đạt</button>
+                            <button onClick={() => handleGrade(s.id, { level: "Chưa hoàn thành" })} className="px-3 py-1 bg-rose-50 text-rose-600 rounded-lg text-sm font-bold hover:bg-rose-100">Chưa đạt</button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
 
       {activeTab === "analytics" && (
         <div className="space-y-6">
-          <h2 className="text-2xl font-bold text-slate-800">Thống kê</h2>
+          <h2 className="text-2xl font-bold text-slate-800">Thống kê học tập</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-              <p className="text-sm font-medium text-slate-500">Sĩ số</p>
-              <p className="text-2xl font-bold text-slate-800">{students.length}</p>
+              <h3 className="text-slate-500 font-medium mb-2">Tổng số học sinh</h3>
+              <p className="text-4xl font-black text-slate-800">{students.length}</p>
             </div>
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-              <p className="text-sm font-medium text-slate-500">Bài tập đã giao</p>
-              <p className="text-2xl font-bold text-slate-800">{assignments.length}</p>
+              <h3 className="text-slate-500 font-medium mb-2">Bài tập đã giao</h3>
+              <p className="text-4xl font-black text-sky-500">{assignments.length}</p>
             </div>
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-              <p className="text-sm font-medium text-slate-500">Tỷ lệ nộp bài</p>
-              <p className="text-2xl font-bold text-slate-800">
-                {assignments.length > 0 && students.length > 0 ? Math.round((submissions.length / (assignments.length * students.length)) * 100) : 0}%
-              </p>
+              <h3 className="text-slate-500 font-medium mb-2">Bài đã nộp</h3>
+              <p className="text-4xl font-black text-emerald-500">{submissions.length}</p>
             </div>
           </div>
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 h-80">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="name" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Bar dataKey="Tốt" fill="#10b981" />
-                <Bar dataKey="Đạt" fill="#3b82f6" />
-                <Bar dataKey="Chưa đạt" fill="#f43f5e" />
-              </BarChart>
-            </ResponsiveContainer>
+
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+            <h3 className="font-bold text-lg mb-6">Kết quả theo bài tập</h3>
+            <div className="space-y-4">
+              {analyticsData.map((data, i) => {
+                const total = data['Hoàn thành tốt'] + data['Hoàn thành'] + data['Chưa đạt'];
+                return (
+                  <div key={i} className="space-y-2">
+                    <div className="flex justify-between text-sm font-medium">
+                      <span>{data.title}</span>
+                      <span className="text-slate-500">{total} bài nộp</span>
+                    </div>
+                    {total > 0 ? (
+                      <div className="h-4 flex rounded-full overflow-hidden">
+                        <div style={{ width: `${(data['Hoàn thành tốt'] / total) * 100}%` }} className="bg-emerald-500" title={`Tốt: ${data['Hoàn thành tốt']}`}></div>
+                        <div style={{ width: `${(data['Hoàn thành'] / total) * 100}%` }} className="bg-sky-500" title={`Đạt: ${data['Hoàn thành']}`}></div>
+                        <div style={{ width: `${(data['Chưa đạt'] / total) * 100}%` }} className="bg-rose-500" title={`Chưa đạt: ${data['Chưa đạt']}`}></div>
+                      </div>
+                    ) : (
+                      <div className="h-4 bg-slate-100 rounded-full"></div>
+                    )}
+                    <div className="flex gap-4 text-xs font-medium text-slate-500">
+                      <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-emerald-500"></div> Tốt ({data['Hoàn thành tốt']})</span>
+                      <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-sky-500"></div> Đạt ({data['Hoàn thành']})</span>
+                      <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-rose-500"></div> Chưa đạt ({data['Chưa đạt']})</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
       )}
@@ -551,17 +580,23 @@ export default function TeacherDashboard() {
       {activeTab === "posts" && (
         <div className="space-y-6">
           <div className="flex justify-between items-center">
-            <h2 className="text-2xl font-bold text-slate-800">Bảng tin</h2>
+            <h2 className="text-2xl font-bold text-slate-800">Bảng tin lớp học</h2>
             <button onClick={() => setIsCreatingPost(true)} className="bg-sky-500 text-white px-4 py-2 rounded-xl font-medium flex items-center gap-2 transition-colors"><Plus className="w-5 h-5" /> Đăng bài</button>
           </div>
 
           {isCreatingPost && (
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+              <h3 className="text-lg font-bold mb-4">{editingPost ? "Sửa bài đăng" : "Tạo bài đăng mới"}</h3>
               <form onSubmit={handleCreatePost} className="space-y-4">
-                <textarea value={newPost.content} onChange={e => setNewPost({...newPost, content: e.target.value})} className="w-full px-4 py-2 rounded-xl border border-slate-200 outline-none min-h-[100px]" placeholder="Nội dung thông báo..." required></textarea>
+                <textarea placeholder="Nội dung bài đăng..." value={newPost.content} onChange={e => setNewPost({...newPost, content: e.target.value})} className="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none h-32 resize-none" required />
                 <div className="flex justify-between items-center">
-                  <label className="bg-slate-100 text-slate-700 px-4 py-2 rounded-xl font-medium cursor-pointer flex items-center gap-2">
-                    <Paperclip className="w-5 h-5" /> Đính kèm file
+                  <select value={newPost.type} onChange={e => setNewPost({...newPost, type: e.target.value})} className="px-4 py-2 rounded-xl border border-slate-200 outline-none">
+                    <option value="announcement">Thông báo</option>
+                    <option value="material">Tài liệu</option>
+                    <option value="discussion">Thảo luận</option>
+                  </select>
+                  <label className="cursor-pointer text-sky-500 hover:text-sky-600 font-medium flex items-center gap-2">
+                    <Upload className="w-5 h-5" /> Đính kèm file
                     <input type="file" multiple className="hidden" onChange={handleFileUploadPost} />
                   </label>
                   <div className="flex gap-3">
@@ -587,27 +622,37 @@ export default function TeacherDashboard() {
               <div key={post.id} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
                 <div className="flex justify-between items-start mb-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-sky-100 rounded-full flex items-center justify-center text-sky-600 font-bold">GV</div>
+                    <div className="w-10 h-10 bg-sky-100 text-sky-600 rounded-full flex items-center justify-center font-bold">
+                      {post.authorName?.charAt(0) || "G"}
+                    </div>
                     <div>
-                      <h4 className="font-bold text-slate-800">Giáo viên</h4>
+                      <h4 className="font-bold text-slate-800">{post.authorName}</h4>
                       <p className="text-xs text-slate-500">{new Date(post.createdAt).toLocaleString('vi-VN')}</p>
                     </div>
                   </div>
                   <div className="flex gap-2">
-                    <button onClick={() => { setEditingPost(post); setNewPost({ ...post }); setIsCreatingPost(true); }} className="p-2 text-amber-500"><Edit className="w-4 h-4" /></button>
-                    <button onClick={async () => { await deletePost(post.id); loadData(); }} className="p-2 text-rose-500"><Trash2 className="w-4 h-4" /></button>
+                    <span className={`px-2 py-1 rounded text-xs font-bold ${post.type === 'announcement' ? 'bg-rose-100 text-rose-600' : post.type === 'material' ? 'bg-indigo-100 text-indigo-600' : 'bg-emerald-100 text-emerald-600'}`}>
+                      {post.type === 'announcement' ? 'Thông báo' : post.type === 'material' ? 'Tài liệu' : 'Thảo luận'}
+                    </span>
+                    {user?.id === post.authorId && (
+                      <>
+                        <button onClick={() => { setEditingPost(post); setNewPost(post); setIsCreatingPost(true); }} className="text-amber-500 hover:bg-amber-50 p-1 rounded"><Edit className="w-4 h-4" /></button>
+                        <button onClick={() => handleDeletePost(post.id)} className="text-rose-500 hover:bg-rose-50 p-1 rounded"><Trash2 className="w-4 h-4" /></button>
+                      </>
+                    )}
                   </div>
                 </div>
                 <p className="text-slate-700 whitespace-pre-wrap mb-4">{post.content}</p>
-                {post.files?.map((f: any, i: number) => (
-                  <div key={i} className="mb-2">
-                    {f.type.startsWith('image/') ? (
-                      <img src={f.data} alt={f.name} className="max-w-full h-auto rounded-xl" />
-                    ) : (
-                      <a href={f.data} download={f.name} className="text-sky-600 flex items-center gap-2"><Paperclip className="w-4 h-4" /> {f.name}</a>
-                    )}
+                {post.files && post.files.length > 0 && (
+                  <div className="flex flex-wrap gap-3 mt-4">
+                    {post.files.map((file: any, i: number) => (
+                      <a key={i} href={file.data} download={file.name} className="flex items-center gap-2 px-3 py-2 bg-slate-50 hover:bg-slate-100 rounded-xl text-sm font-medium text-slate-700 transition-colors border border-slate-200">
+                        {file.type.includes('image') ? <ImageIcon className="w-4 h-4 text-sky-500" /> : <FileText className="w-4 h-4 text-rose-500" />}
+                        {file.name}
+                      </a>
+                    ))}
                   </div>
-                ))}
+                )}
               </div>
             ))}
           </div>
@@ -616,192 +661,59 @@ export default function TeacherDashboard() {
 
       {activeTab === "settings" && (
         <div className="space-y-6">
-          <div className="flex justify-between items-center">
-            <h2 className="text-2xl font-bold text-slate-800">Cài đặt</h2>
-            <button onClick={() => setIsEditingSettings(!isEditingSettings)} className="bg-sky-500 text-white px-4 py-2 rounded-xl font-medium flex items-center gap-2 transition-colors">
-              <Edit className="w-5 h-5" /> {isEditingSettings ? "Hủy" : "Chỉnh sửa"}
-            </button>
+          <h2 className="text-2xl font-bold text-slate-800">Cài đặt ứng dụng</h2>
+          
+          <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl mb-6">
+            <h3 className="font-bold text-amber-800 mb-2">⚠️ Lưu ý quan trọng về Đổi tên đăng nhập</h3>
+            <p className="text-sm text-amber-700 mb-2">
+              Để tính năng đổi tên đăng nhập hoạt động, bạn cần bật <b>"Email address change"</b> trong Firebase Console:
+            </p>
+            <ol className="list-decimal list-inside text-sm text-amber-700 space-y-1 ml-2">
+              <li>Mở Firebase Console &gt; Authentication &gt; Settings &gt; User actions.</li>
+              <li>Bỏ chọn (Tắt) mục <b>"Email enumeration protection"</b>.</li>
+            </ol>
           </div>
 
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-            {isEditingSettings ? (
-              <form onSubmit={handleSaveSettings} className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <input type="text" placeholder="Tên ứng dụng" value={settingsForm.appName} onChange={e => setSettingsForm({...settingsForm, appName: e.target.value})} className="px-4 py-2 rounded-xl border border-slate-200 outline-none" required />
-                  <input type="text" placeholder="Tên giáo viên" value={settingsForm.teacherName} onChange={e => setSettingsForm({...settingsForm, teacherName: e.target.value})} className="px-4 py-2 rounded-xl border border-slate-200 outline-none" required />
-                  <input type="text" placeholder="Tên trường" value={settingsForm.schoolName} onChange={e => setSettingsForm({...settingsForm, schoolName: e.target.value})} className="px-4 py-2 rounded-xl border border-slate-200 outline-none" required />
-                  <input type="text" placeholder="Tên lớp" value={settingsForm.className} onChange={e => setSettingsForm({...settingsForm, className: e.target.value})} className="px-4 py-2 rounded-xl border border-slate-200 outline-none" required />
+          <form onSubmit={handleSaveSettings} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 max-w-2xl">
+            <div className="space-y-4">
+              <div className="flex items-center gap-6 mb-6">
+                {appSettings.avatarUrl ? (
+                  <img src={appSettings.avatarUrl} alt="Logo" className="w-24 h-24 rounded-2xl object-cover shadow-sm" />
+                ) : (
+                  <div className="w-24 h-24 bg-slate-100 rounded-2xl flex items-center justify-center text-slate-400">
+                    <ImageIcon className="w-8 h-8" />
+                  </div>
+                )}
+                <div>
+                  <h3 className="font-bold text-slate-800 mb-2">Logo / Ảnh đại diện</h3>
+                  <label className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-xl cursor-pointer transition-colors text-sm font-medium">
+                    Tải ảnh lên
+                    <input type="file" className="hidden" accept="image/*" onChange={handleAvatarUpload} />
+                  </label>
                 </div>
-                <button type="submit" className="bg-sky-500 text-white px-6 py-2 rounded-xl">Lưu</button>
-              </form>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                <div><p className="text-sm text-slate-500">Tên ứng dụng</p><p className="font-medium">{appSettings.appName || "Chúng mình cùng học"}</p></div>
-                <div><p className="text-sm text-slate-500">Giáo viên</p><p className="font-medium">{appSettings.teacherName || "Cô giáo"}</p></div>
-                <div><p className="text-sm text-slate-500">Trường</p><p className="font-medium">{appSettings.schoolName || "Trường Tiểu học ABC"}</p></div>
-                <div><p className="text-sm text-slate-500">Lớp</p><p className="font-medium">{appSettings.className || "Lớp 3A"}</p></div>
               </div>
-            )}
-          </div>
 
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-            <h3 className="text-lg font-bold mb-4">Đổi thông tin đăng nhập</h3>
-            <form onSubmit={async (e) => {
-              e.preventDefault();
-              console.log("Form submitted");
-              const form = e.target as HTMLFormElement;
-              const submitBtn = form.querySelector('button[type="submit"]') as HTMLButtonElement;
-              const originalText = submitBtn.innerText;
-              
-              const newUsername = (form.elements.namedItem('newUsername') as HTMLInputElement).value.trim();
-              const newPassword = (form.elements.namedItem('newPassword') as HTMLInputElement).value;
-              const confirmPassword = (form.elements.namedItem('confirmPassword') as HTMLInputElement).value;
-              
-              console.log("Data:", { newUsername, hasPassword: !!newPassword });
-
-              if (newPassword && newPassword !== confirmPassword) { 
-                alert("Mật khẩu xác nhận không khớp!"); 
-                return; 
-              }
-
-              if (!newUsername && !newPassword) {
-                alert("Vui lòng nhập tên đăng nhập mới hoặc mật khẩu mới!");
-                return;
-              }
-
-              try {
-                submitBtn.disabled = true;
-                submitBtn.innerText = "Đang xử lý...";
-
-                console.log("Current user from AuthContext:", user);
-
-                // Ưu tiên dùng thông tin từ user context nếu có đủ id và email
-                let currentTeacherId = user?.id || user?.uid;
-                let currentTeacherEmail = user?.email;
-
-                // Nếu không có id trong user context, tìm trong danh sách teachers
-                if (!currentTeacherId || currentTeacherId === user?.uid) {
-                  const found = teachers.find(t => 
-                    t.email?.toLowerCase() === user?.email?.toLowerCase() ||
-                    t.id?.toLowerCase() === user?.email?.split('@')[0]?.toLowerCase()
-                  );
-                  if (found) {
-                    currentTeacherId = found.id;
-                    currentTeacherEmail = found.email;
-                  }
-                }
-                
-                if (!currentTeacherId) {
-                  console.error("Teacher ID not found. User object:", user);
-                  alert("Không tìm thấy mã định danh giáo viên của bạn. Vui lòng thử Đăng xuất và Đăng nhập lại để đồng bộ dữ liệu.");
-                  return;
-                }
-
-                console.log("Updating teacher with ID:", currentTeacherId);
-
-                const updates: any = {};
-                const newEmail = newUsername ? `${newUsername.toLowerCase()}@school.com` : currentTeacherEmail;
-                
-                if (newUsername) { 
-                  updates.id = newUsername.toLowerCase(); 
-                  updates.email = newEmail; 
-                }
-                if (newPassword) updates.password = newPassword;
-                
-                console.log("Applying updates to DB:", updates);
-                // 1. Cập nhật Cơ sở dữ liệu
-                await updateTeacher(currentTeacherId, updates);
-                console.log("DB update success");
-                
-                // 2. Đồng bộ với hệ thống đăng nhập
-                try {
-                  if (newPassword) {
-                    console.log("Updating Auth password...");
-                    await updateUserPassword(newPassword);
-                  }
-                  if (newUsername && newEmail !== currentTeacherEmail) {
-                    console.log("Updating Auth email...");
-                    await updateUserEmail(newEmail);
-                  }
-                  
-                  alert("Cập nhật thành công! Hệ thống sẽ tự động đăng xuất để bạn đăng nhập lại với thông tin mới.");
-                  await logout();
-                  window.location.href = "/login";
-                } catch (authError: any) {
-                  console.error("Auth sync failed:", authError);
-                  if (authError.code === 'auth/operation-not-allowed') {
-                    alert("Đã lưu vào Cơ sở dữ liệu, nhưng hệ thống đăng nhập (Firebase) chưa cho phép đổi tên đăng nhập.\n\nCÁCH KHẮC PHỤC:\n1. Vào Firebase Console -> Authentication -> Settings.\n2. Bật (Enable) mục 'Email address change' trong phần 'User actions'.\n3. Thử lại sau khi đã bật.");
-                  } else {
-                    alert("Đã lưu mật khẩu mới vào Cơ sở dữ liệu. Tuy nhiên, do yêu cầu bảo mật của Google, bạn cần Đăng xuất và Đăng nhập lại NGAY LẬP TỨC để mật khẩu mới có hiệu lực trên hệ thống đăng nhập. (Lỗi: " + authError.message + ")");
-                  }
-                }
-              } catch (error: any) {
-                console.error("Update failed:", error);
-                alert("Lỗi khi cập nhật: " + error.message);
-              } finally {
-                submitBtn.disabled = false;
-                submitBtn.innerText = originalText;
-              }
-            }} className="space-y-4 max-w-md">
-              <input type="text" name="newUsername" placeholder="Tên đăng nhập mới (để trống nếu không đổi)" className="w-full px-4 py-2 rounded-xl border border-slate-200 outline-none" />
-              <input type="password" name="newPassword" placeholder="Mật khẩu mới (để trống nếu không đổi)" className="w-full px-4 py-2 rounded-xl border border-slate-200 outline-none" />
-              <input type="password" name="confirmPassword" placeholder="Xác nhận mật khẩu mới" className="w-full px-4 py-2 rounded-xl border border-slate-200 outline-none" />
-              <button type="submit" className="bg-slate-800 text-white px-6 py-2 rounded-xl w-full disabled:opacity-50">Cập nhật</button>
-            </form>
-          </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Tên ứng dụng</label>
+                <input type="text" value={appSettings.appName} onChange={e => setAppSettings({...appSettings, appName: e.target.value})} className="w-full px-4 py-2 rounded-xl border border-slate-200 outline-none focus:border-sky-500" placeholder="VD: Lớp Học Đảo Ngược" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Tên giáo viên</label>
+                <input type="text" value={appSettings.teacherName} onChange={e => setAppSettings({...appSettings, teacherName: e.target.value})} className="w-full px-4 py-2 rounded-xl border border-slate-200 outline-none focus:border-sky-500" placeholder="VD: Cô Lan" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Tên trường</label>
+                <input type="text" value={appSettings.schoolName} onChange={e => setAppSettings({...appSettings, schoolName: e.target.value})} className="w-full px-4 py-2 rounded-xl border border-slate-200 outline-none focus:border-sky-500" placeholder="VD: Trường Tiểu học ABC" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Tên lớp</label>
+                <input type="text" value={appSettings.className} onChange={e => setAppSettings({...appSettings, className: e.target.value})} className="w-full px-4 py-2 rounded-xl border border-slate-200 outline-none focus:border-sky-500" placeholder="VD: Lớp 3A" />
+              </div>
+              <button type="submit" className="bg-sky-500 text-white px-6 py-3 rounded-xl font-bold mt-4 w-full">Lưu cài đặt</button>
+            </div>
+          </form>
         </div>
       )}
-    </div>
-  );
-}
-
-function SubmissionCard({ sub, assignment, studentName, onGrade, suggestComment }: any) {
-  const [comment, setComment] = useState("");
-  const [level, setLevel] = useState("Hoàn thành");
-  const [score, setScore] = useState<number | "">("");
-  const [loadingAI, setLoadingAI] = useState(false);
-
-  const handleSuggest = async () => {
-    setLoadingAI(true);
-    const suggestion = await suggestComment(sub.content, studentName);
-    if (suggestion) {
-      setComment(suggestion.comment || "");
-      if (suggestion.level) setLevel(suggestion.level);
-    }
-    setLoadingAI(false);
-  };
-
-  return (
-    <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-      <div className="mb-4">
-        <h3 className="font-bold text-lg">{assignment?.title || "Bài tập"}</h3>
-        <p className="text-sm text-slate-500">Học sinh: {studentName}</p>
-      </div>
-      <div className="bg-slate-50 p-4 rounded-xl mb-4 border border-slate-100">
-        {assignment?.type === 'drawing' ? (
-          <img src={sub.content} alt="Bài vẽ" className="max-w-full h-auto rounded-xl" />
-        ) : (
-          <p className="text-slate-700 whitespace-pre-wrap">{typeof sub.content === 'string' ? sub.content : JSON.stringify(sub.content)}</p>
-        )}
-      </div>
-      <div className="space-y-4">
-        <button onClick={handleSuggest} disabled={loadingAI} className="bg-indigo-50 text-indigo-600 px-4 py-2 rounded-xl font-medium flex items-center gap-2 transition-colors disabled:opacity-50">
-          <Sparkles className="w-4 h-4" /> {loadingAI ? "AI đang gợi ý..." : "AI Gợi ý nhận xét"}
-        </button>
-        <textarea value={comment} onChange={e => setComment(e.target.value)} placeholder="Nhận xét..." className="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none min-h-[100px]" />
-        <div className="flex items-center justify-between">
-          <div className="flex gap-3">
-            {assignment?.gradingType === 'score' ? (
-              <input type="number" value={score} onChange={e => setScore(e.target.value ? Number(e.target.value) : "")} className="w-20 px-3 py-2 rounded-xl border border-slate-200 text-center font-bold" placeholder="Điểm" />
-            ) : (
-              ["Hoàn thành tốt", "Hoàn thành", "Chưa hoàn thành"].map(l => (
-                <button key={l} onClick={() => setLevel(l)} className={`px-4 py-2 rounded-xl border-2 font-medium transition-colors ${level === l ? 'border-sky-500 bg-sky-50 text-sky-700' : 'border-slate-100 text-slate-500'}`}>{l}</button>
-              ))
-            )}
-          </div>
-          <button onClick={() => onGrade(sub.id, { comment, level: assignment?.gradingType === 'score' ? undefined : level, score: assignment?.gradingType === 'score' ? score : undefined })} className="bg-emerald-500 text-white px-6 py-2 rounded-xl font-bold">Lưu</button>
-        </div>
-      </div>
     </div>
   );
 }
