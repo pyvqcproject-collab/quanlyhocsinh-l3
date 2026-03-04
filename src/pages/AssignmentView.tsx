@@ -5,6 +5,7 @@ import { useAuth } from "../context/AuthContext";
 import { ArrowLeft, CheckCircle, Volume2, Image as ImageIcon, X, Clock, PenTool } from "lucide-react";
 import DrawingCanvas from "../components/DrawingCanvas";
 import InteractiveVideo from "../components/InteractiveVideo";
+import AttachmentManager, { Attachment } from "../components/AttachmentManager";
 
 export const speak = (text: string) => {
   if ('speechSynthesis' in window) {
@@ -46,9 +47,8 @@ export default function AssignmentView() {
   const [assignment, setAssignment] = useState<any>(null);
   const [content, setContent] = useState("");
   const [videoAnswers, setVideoAnswers] = useState<Record<number, string>>({});
-  const [attachedImages, setAttachedImages] = useState<string[]>([]);
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [submitting, setSubmitting] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (id) {
@@ -63,39 +63,16 @@ export default function AssignmentView() {
 
   if (!assignment) return <div className="min-h-screen flex items-center justify-center">Đang tải...</div>;
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files) return;
-    
-    Array.from(files as Iterable<File>).forEach(file => {
-      const reader = new FileReader();
-      reader.onload = (evt) => {
-        if (evt.target?.result) {
-          setAttachedImages(prev => [...prev, evt.target!.result as string]);
-        }
-      };
-      reader.readAsDataURL(file);
-    });
-    
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  };
-
-  const removeImage = (index: number) => {
-    setAttachedImages(prev => prev.filter((_, i) => i !== index));
-  };
-
   const handleSubmit = async (data: any) => {
     setSubmitting(true);
     
-    // Combine data with attached images
+    // Combine data with attached files
     let finalContent = data;
-    if (attachedImages.length > 0) {
+    if (attachments.length > 0) {
       if (typeof data === 'string') {
-        finalContent = { text: data, images: attachedImages };
+        finalContent = { text: data, attachments };
       } else if (typeof data === 'object') {
-        finalContent = { ...data, images: attachedImages };
+        finalContent = { ...data, attachments };
       }
     }
 
@@ -107,46 +84,6 @@ export default function AssignmentView() {
     setSubmitting(false);
     navigate("/dashboard");
   };
-
-  const ImageUploader = () => (
-    <div className="mt-8 border-t-4 border-slate-100 pt-8">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
-        <h3 className="text-xl font-black text-slate-800 flex items-center gap-2">
-          <ImageIcon className="w-6 h-6 text-sky-500" /> Đính kèm ảnh trả lời
-        </h3>
-        <button 
-          onClick={() => fileInputRef.current?.click()}
-          className="flex items-center gap-2 px-6 py-3 bg-sky-100 hover:bg-sky-200 text-sky-700 rounded-2xl font-bold transition-transform hover:scale-105 active:scale-95 border-2 border-sky-200"
-        >
-          <ImageIcon className="w-5 h-5" /> Chọn ảnh
-        </button>
-        <input 
-          type="file" 
-          accept="image/*" 
-          multiple 
-          className="hidden" 
-          ref={fileInputRef}
-          onChange={handleImageUpload}
-        />
-      </div>
-      
-      {attachedImages.length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mt-4">
-          {attachedImages.map((img, i) => (
-            <div key={i} className="relative group aspect-square rounded-[2rem] overflow-hidden border-4 border-slate-200 hover:border-sky-400 transition-colors shadow-sm">
-              <img src={img} alt={`Đính kèm ${i+1}`} className="w-full h-full object-cover" />
-              <button 
-                onClick={() => removeImage(i)}
-                className="absolute top-3 right-3 p-2 bg-rose-500 text-white rounded-xl opacity-0 group-hover:opacity-100 transition-opacity hover:bg-rose-600 hover:scale-110 active:scale-90 shadow-md"
-              >
-                <X className="w-5 h-5 text-white font-bold" />
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
 
   return (
     <div className="min-h-screen bg-slate-50/50 pb-20">
@@ -201,10 +138,10 @@ export default function AssignmentView() {
                 className="w-full h-64 p-6 rounded-[2rem] border-4 border-slate-200 focus:border-sky-400 focus:ring-4 focus:ring-sky-100 outline-none text-xl resize-none transition-all font-medium"
                 placeholder="Bắt đầu viết tại đây..."
               />
-              <ImageUploader />
+              <AttachmentManager attachments={attachments} onChange={setAttachments} />
               <button 
                 onClick={() => handleSubmit(content)} 
-                disabled={(!content.trim() && attachedImages.length === 0) || submitting}
+                disabled={(!content.trim() && attachments.length === 0) || submitting}
                 className="w-full sm:w-auto bg-sky-500 hover:bg-sky-600 disabled:bg-slate-300 text-white px-10 py-5 rounded-2xl font-black text-xl shadow-lg hover:shadow-xl hover:-translate-y-1 active:translate-y-0 transition-all flex items-center justify-center gap-3 mx-auto mt-8"
               >
                 <CheckCircle className="w-8 h-8" /> Nộp bài ngay!
@@ -215,7 +152,7 @@ export default function AssignmentView() {
           {assignment.type === "drawing" && (
             <div className="space-y-6">
               <DrawingCanvas onSubmit={handleSubmit} submitting={submitting}>
-                <ImageUploader />
+                <AttachmentManager attachments={attachments} onChange={setAttachments} />
               </DrawingCanvas>
             </div>
           )}
@@ -223,7 +160,7 @@ export default function AssignmentView() {
           {assignment.type === "video" && (
             <div className="space-y-6">
               <InteractiveVideo videoUrl={assignment.videoUrl} questions={assignment.questions} onComplete={setVideoAnswers} />
-              <ImageUploader />
+              <AttachmentManager attachments={attachments} onChange={setAttachments} />
               <button 
                 onClick={() => handleSubmit(videoAnswers)} 
                 disabled={submitting || (assignment.questions?.length > 0 && Object.keys(videoAnswers).length < assignment.questions.length)}
@@ -237,7 +174,7 @@ export default function AssignmentView() {
           {assignment.type === "quiz" && (
             <div className="space-y-8">
               <Quiz questions={assignment.questions} onComplete={setVideoAnswers} />
-              <ImageUploader />
+              <AttachmentManager attachments={attachments} onChange={setAttachments} />
               <button 
                 onClick={() => handleSubmit(videoAnswers)} 
                 disabled={submitting || (assignment.questions?.length > 0 && Object.keys(videoAnswers).length < assignment.questions.length)}
