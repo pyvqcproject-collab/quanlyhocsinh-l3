@@ -4,6 +4,7 @@ import { login, register } from "../firebase/auth";
 import { addTeacher, getUser } from "../firebase/db";
 import { db } from "../firebase/config";
 import { doc, setDoc } from "firebase/firestore";
+import { getAuth, deleteUser } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
 import { BookOpen, User, Users, GraduationCap, Loader2 } from "lucide-react";
 
@@ -50,64 +51,65 @@ export default function Login() {
     } catch (error: any) {
       console.error("Login error:", error.code, error.message);
       
-      try {
-        // Check if user exists in Firestore but not in Auth (or wrong password in Auth)
-        const firestoreUser = await getUser(loginEmail);
-        
-        if (firestoreUser) {
-          // Case 1: User exists in Firestore but login failed
-          if (firestoreUser.password === password) {
-            // Password matches Firestore. Try to auto-register in case they don't exist in Auth.
-            try {
-              const newUser = await register(loginEmail, password);
-              console.log("Auto-registered user:", newUser.email);
+      // XỬ LÝ LỖI THÔNG MINH (Bỏ qua lỗi phân quyền Firestore)
+      if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
+        try {
+          // 1. Thử đăng ký ngầm (để lấy quyền truy cập DB)
+          const newUser = await register(loginEmail, password);
+          
+          // 2. Đăng ký thành công -> Đã đăng nhập -> Đã có quyền đọc DB
+          const firestoreUser = await getUser(loginEmail);
+          
+          if (firestoreUser) {
+            // 3. Có trong danh sách lớp, kiểm tra mật khẩu gốc
+            if (firestoreUser.password === password) {
+              // Mật khẩu đúng -> Cho phép vào
               navigate("/dashboard");
-              return;
-            } catch (regError: any) {
-              if (regError.code === 'auth/email-already-in-use') {
-                alert("Mật khẩu của bạn đã được thay đổi trong hệ thống nhưng chưa được cập nhật vào hệ thống đăng nhập. Vui lòng thử lại bằng mật khẩu CŨ nhất của bạn, hoặc liên hệ quản trị viên.");
-              } else if (regError.code === 'auth/operation-not-allowed') {
-                alert("Tính năng đăng nhập bằng Email/Mật khẩu chưa được bật trong Firebase Console. Vui lòng liên hệ quản trị viên.");
-              } else {
-                console.error("Auto-registration failed:", regError);
-                alert("Đã xảy ra lỗi khi đồng bộ tài khoản. Vui lòng thử lại.");
+            } else {
+              // Mật khẩu sai -> Xóa tài khoản vừa tạo ngầm để không bị kẹt cho lần sau
+              const auth = getAuth();
+              if (auth.currentUser) {
+                await deleteUser(auth.currentUser);
               }
-              return;
+              alert("Sai mật khẩu. Vui lòng kiểm tra lại.");
             }
           } else {
+            // Không có trong danh sách lớp -> Xóa tài khoản rác
+            const auth = getAuth();
+            if (auth.currentUser) {
+              await deleteUser(auth.currentUser);
+            }
+            
+            // Xử lý riêng cho Giáo viên tạo tài khoản lần đầu
+            if (role === "teacher") {
+              const newTeacherUser = await register(loginEmail, password);
+              await addTeacher({
+                username: loginEmail.split('@')[0],
+                email: loginEmail,
+                name: "Giáo viên",
+                isAdmin: true,
+                password: password
+              });
+              alert("Tài khoản giáo viên mới đã được tạo thành công!");
+              setUser({ ...newTeacherUser, role: 'teacher', isAdmin: true });
+              navigate("/dashboard");
+            } else {
+              alert("Tài khoản này chưa được Giáo viên thêm vào danh sách lớp.");
+            }
+          }
+        } catch (regError: any) {
+          if (regError.code === 'auth/email-already-in-use') {
+            // Đã có tài khoản Auth, nghĩa là lỗi ban đầu thực sự là do Sai Mật Khẩu
             alert("Sai mật khẩu. Vui lòng kiểm tra lại.");
-            return;
+          } else if (regError.code === 'auth/operation-not-allowed') {
+            alert("Tính năng đăng nhập bằng Email/Mật khẩu chưa được bật trong Firebase Console.");
+          } else {
+            alert("Lỗi hệ thống: " + regError.message);
           }
         }
-      } catch (dbError: any) {
-        console.error("Lỗi khi truy xuất Firestore trong lúc đăng nhập:", dbError);
-        if (dbError.code === 'permission-denied') {
-          alert("Lỗi phân quyền: Tài khoản của bạn chưa được kích hoạt trên hệ thống xác thực. Vui lòng nhờ Giáo viên tạo tài khoản cho bạn.");
-          return;
-        }
+      } else {
+        alert("Đăng nhập thất bại: " + error.message);
       }
-
-      // Case 2: Special case for first-time teacher setup
-      if (role === "teacher" && error.code === 'auth/user-not-found') {
-        try {
-          const newUser = await register(loginEmail, password);
-          await addTeacher({
-            username: loginEmail.split('@')[0],
-            email: loginEmail,
-            name: "Giáo viên",
-            isAdmin: true,
-            password: password // Store password in Firestore for sync
-          });
-          alert("Tài khoản giáo viên mới đã được tạo thành công!");
-          setUser({ ...newUser, role: 'teacher', isAdmin: true });
-          navigate("/dashboard");
-          return;
-        } catch (regError) {
-          console.error("Auto-registration failed:", regError);
-        }
-      }
-      
-      alert("Đăng nhập thất bại. Vui lòng kiểm tra lại tên đăng nhập và mật khẩu.");
     } finally {
       setIsLoading(false);
     }
