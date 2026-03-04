@@ -457,7 +457,34 @@ export default function TeacherDashboard() {
                   <input type="date" value={newAssignment.dueDate} onChange={e => setNewAssignment({...newAssignment, dueDate: e.target.value})} className="px-4 py-2 rounded-xl border border-slate-200 outline-none" required />
                 </div>
                 {newAssignment.type === 'video' && (
-                  <input type="url" placeholder="Đường dẫn Video (Youtube, v.v.)" value={newAssignment.videoUrl} onChange={e => setNewAssignment({...newAssignment, videoUrl: e.target.value})} className="w-full px-4 py-2 rounded-xl border border-slate-200 outline-none" required />
+                  <div className="space-y-4">
+                    <input type="url" placeholder="Đường dẫn Video (Youtube, v.v.)" value={newAssignment.videoUrl} onChange={e => setNewAssignment({...newAssignment, videoUrl: e.target.value})} className="w-full px-4 py-2 rounded-xl border border-slate-200 outline-none" required />
+                    <div className="pt-4 border-t border-slate-100">
+                      <div className="flex justify-between items-center mb-4">
+                        <h4 className="font-medium text-slate-700">Câu hỏi tương tác trong Video</h4>
+                        <button type="button" onClick={handleAddQuestion} className="text-sky-600 font-medium">+ Thêm câu hỏi</button>
+                      </div>
+                      {newAssignment.questions.map((q, i) => (
+                        <div key={i} className="bg-slate-50 p-4 rounded-xl border border-slate-200 mb-4 relative">
+                          <button type="button" onClick={() => handleRemoveQuestion(i)} className="absolute top-2 right-2 text-rose-500 hover:bg-rose-50 p-1 rounded"><Trash2 className="w-4 h-4" /></button>
+                          <div className="mb-3">
+                            <label className="block text-xs font-medium text-slate-500 mb-1">Thời gian xuất hiện (giây)</label>
+                            <input type="number" min="0" placeholder="Ví dụ: 60 (xuất hiện ở phút thứ 1)" value={q.time} onChange={e => handleQuestionChange(i, 'time', parseInt(e.target.value) || 0)} className="w-full px-3 py-2 rounded-lg border border-slate-200" required />
+                          </div>
+                          <input type="text" placeholder="Nội dung câu hỏi" value={q.q} onChange={e => handleQuestionChange(i, 'q', e.target.value)} className="w-full px-3 py-2 rounded-lg border border-slate-200 mb-2" required />
+                          <div className="grid grid-cols-2 gap-2">
+                            {q.options.map((opt: string, optIdx: number) => (
+                              <input key={optIdx} type="text" placeholder={`Lựa chọn ${optIdx + 1}`} value={opt} onChange={e => handleQuestionChange(i, 'options', e.target.value, optIdx)} className="px-3 py-2 rounded-lg border border-slate-200" required />
+                            ))}
+                          </div>
+                          <select value={q.answer} onChange={e => handleQuestionChange(i, 'answer', e.target.value)} className="w-full px-3 py-2 rounded-lg border border-slate-200 mt-2" required>
+                            <option value="">Chọn đáp án đúng</option>
+                            {q.options.map((opt: string) => opt && <option key={opt} value={opt}>{opt}</option>)}
+                          </select>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 )}
                 {newAssignment.type === 'drawing' && (
                   <input type="url" placeholder="Đường dẫn ảnh mẫu (tùy chọn)" value={newAssignment.imageUrl} onChange={e => setNewAssignment({...newAssignment, imageUrl: e.target.value})} className="w-full px-4 py-2 rounded-xl border border-slate-200 outline-none" />
