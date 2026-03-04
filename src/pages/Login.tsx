@@ -1,124 +1,133 @@
 import React, { useState } from "react";
-import { useAuth } from "../context/AuthContext";
-import { login, register } from "../firebase/auth";
-import { addTeacher, getUser } from "../firebase/db";
+import { login } from "../firebase/auth";
 import { useNavigate } from "react-router-dom";
-import { BookOpen, User, Users, GraduationCap } from "lucide-react";
+import { useAuth } from "../context/AuthContext";
+import { GraduationCap, User, Users, Lock, Mail, Sparkles } from "lucide-react";
 
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState("student");
-  const { setUser } = useAuth();
+  const [error, setError] = useState("");
   const navigate = useNavigate();
+  const { setUser } = useAuth();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    const rawEmail = email.includes("@") ? email : `${email}@school.com`;
-    const loginEmail = rawEmail.toLowerCase().trim();
+    setError("");
+    
+    const loginEmail = email.includes("@") ? email : `${email}@school.com`;
     
     try {
+      console.log("Attempting login for:", loginEmail, "with role:", role);
       const u = await login(loginEmail, password, role);
-      // Lấy thêm profile từ Firestore để chắc chắn có role
-      const profile = await getUser(loginEmail);
-      setUser({ ...u, ...profile });
+      console.log("Login successful, user:", u.email);
+      // setUser(u); // AuthContext handles it via onAuthStateChanged
       navigate("/dashboard");
     } catch (error: any) {
       console.error("Login error:", error.code, error.message);
-      
-      const firestoreUser = await getUser(loginEmail);
-      
-      if (firestoreUser) {
-        if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found') {
-          if (firestoreUser.password === password) {
-            try {
-              const newUser = await register(loginEmail, password);
-              setUser({ ...newUser, ...firestoreUser });
-              navigate("/dashboard");
-              return;
-            } catch (regError: any) {
-              if (regError.code === 'auth/email-already-in-use') {
-                alert("Mật khẩu của bạn đã được thay đổi. Vui lòng thử đăng nhập bằng MẬT KHẨU CŨ NHẤT của bạn để hệ thống đồng bộ lại.");
-              } else {
-                alert("Lỗi hệ thống: " + regError.message);
-              }
-              return;
-            }
-          }
-        }
-      }
-
-      if (role === "teacher" && (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') && !firestoreUser) {
-        try {
-          const newUser = await register(loginEmail, password);
-          await addTeacher({
-            username: loginEmail.split('@')[0],
-            email: loginEmail,
-            name: "Giáo viên",
-            isAdmin: true,
-            password: password 
-          });
-          alert("Tài khoản giáo viên mới đã được tạo thành công!");
-          setUser({ ...newUser, role: 'teacher', isAdmin: true });
-          navigate("/dashboard");
-          return;
-        } catch (regError) {
-          console.error("Auto-registration failed:", regError);
-        }
-      }
-      
-      alert("Đăng nhập thất bại. Vui lòng kiểm tra lại tên đăng nhập và mật khẩu.");
+      setError("Tên đăng nhập hoặc mật khẩu không đúng!");
     }
   };
 
-  const setDemoUser = (demoRole: string) => {
-    setRole(demoRole);
-    if (demoRole === "student") {
-      setEmail("HS001");
-    } else if (demoRole === "parent") {
-      setEmail("PH001");
+  const setDemoUser = (r: string) => {
+    setRole(r);
+    if (r === "teacher") {
+      setEmail("teacher");
+      setPassword("123456");
+    } else if (r === "student") {
+      setEmail("student");
+      setPassword("123456");
     } else {
-      setEmail(`${demoRole}@school.com`);
+      setEmail("PHHS01");
+      setPassword("123456");
     }
-    setPassword("123456");
   };
 
   return (
-    <div className="min-h-screen bg-sky-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-3xl shadow-xl w-full max-w-md overflow-hidden">
-        <div className="bg-sky-500 p-8 text-center text-white">
-          <BookOpen className="w-16 h-16 mx-auto mb-4" />
-          <h1 className="text-3xl font-bold">Lớp Học Đảo Ngược</h1>
-          <p className="text-sky-100 mt-2">Học tập thông minh, vui vẻ mỗi ngày!</p>
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+      <div className="max-w-md w-full bg-white rounded-[2.5rem] shadow-xl overflow-hidden border-4 border-white">
+        <div className="bg-slate-800 p-8 text-center relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-full opacity-10">
+            <div className="absolute top-0 left-0 w-20 h-20 bg-white rounded-full -translate-x-1/2 -translate-y-1/2"></div>
+            <div className="absolute bottom-0 right-0 w-32 h-32 bg-white rounded-full translate-x-1/2 translate-y-1/2"></div>
+          </div>
+          <div className="relative z-10">
+            <div className="w-16 h-16 bg-white/10 backdrop-blur-md rounded-2xl flex items-center justify-center mx-auto mb-4 border border-white/20">
+              <Sparkles className="w-8 h-8 text-sky-400" />
+            </div>
+            <h2 className="text-3xl font-black text-white mb-2">Chào mừng bé!</h2>
+            <p className="text-slate-400 font-medium">Đăng nhập để bắt đầu học nhé</p>
+          </div>
         </div>
         
         <div className="p-8">
           <div className="flex justify-center gap-4 mb-8">
-            <button onClick={() => setDemoUser("student")} className={`flex flex-col items-center p-3 rounded-xl border-2 transition-all ${role === "student" ? "border-sky-500 bg-sky-50 text-sky-600" : "border-gray-100 text-gray-400 hover:border-sky-200"}`}>
+            <button onClick={() => setDemoUser("student")} className={`flex flex-col items-center p-3 rounded-xl border-2 transition-all w-24 ${role === "student" ? "border-sky-500 bg-sky-50 text-sky-600 ring-2 ring-sky-200" : "border-gray-100 text-gray-400 hover:border-sky-200"}`}>
               <User className="w-8 h-8 mb-1" />
-              <span className="text-sm font-medium">Học sinh</span>
+              <span className="text-xs font-bold uppercase">Học sinh</span>
             </button>
-            <button onClick={() => setDemoUser("teacher")} className={`flex flex-col items-center p-3 rounded-xl border-2 transition-all ${role === "teacher" ? "border-amber-500 bg-amber-50 text-amber-600" : "border-gray-100 text-gray-400 hover:border-amber-200"}`}>
+            <button onClick={() => setDemoUser("teacher")} className={`flex flex-col items-center p-3 rounded-xl border-2 transition-all w-24 ${role === "teacher" ? "border-amber-500 bg-amber-50 text-amber-600 ring-2 ring-amber-200" : "border-gray-100 text-gray-400 hover:border-amber-200"}`}>
               <GraduationCap className="w-8 h-8 mb-1" />
-              <span className="text-sm font-medium">Giáo viên</span>
+              <span className="text-xs font-bold uppercase">Giáo viên</span>
             </button>
-            <button onClick={() => setDemoUser("parent")} className={`flex flex-col items-center p-3 rounded-xl border-2 transition-all ${role === "parent" ? "border-emerald-500 bg-emerald-50 text-emerald-600" : "border-gray-100 text-gray-400 hover:border-emerald-200"}`}>
+            <button onClick={() => setDemoUser("parent")} className={`flex flex-col items-center p-3 rounded-xl border-2 transition-all w-24 ${role === "parent" ? "border-emerald-500 bg-emerald-50 text-emerald-600 ring-2 ring-emerald-200" : "border-gray-100 text-gray-400 hover:border-emerald-200"}`}>
               <Users className="w-8 h-8 mb-1" />
-              <span className="text-sm font-medium">Phụ huynh</span>
+              <span className="text-xs font-bold uppercase">Phụ huynh</span>
             </button>
           </div>
 
+          <div className="mb-6 text-center">
+            <p className="text-sm font-medium text-gray-500">
+              Bạn đang đăng nhập với tư cách: <span className={`font-bold ${role === 'teacher' ? 'text-amber-600' : role === 'student' ? 'text-sky-600' : 'text-emerald-600'}`}>
+                {role === 'teacher' ? 'Giáo viên' : role === 'student' ? 'Học sinh' : 'Phụ huynh'}
+              </span>
+            </p>
+          </div>
+
           <form onSubmit={handleLogin} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Tên đăng nhập</label>
-              <input type="text" value={email} onChange={e => setEmail(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none transition-all" placeholder="VD: HS001 hoặc email..." required />
+            {error && (
+              <div className="bg-rose-50 text-rose-600 p-4 rounded-xl text-sm font-bold border border-rose-100 flex items-center gap-2">
+                <div className="w-2 h-2 bg-rose-500 rounded-full animate-pulse"></div>
+                {error}
+              </div>
+            )}
+            
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-slate-600 ml-1">Tên đăng nhập</label>
+              <div className="relative">
+                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                <input
+                  type="text"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full pl-12 pr-4 py-3 rounded-2xl border-2 border-slate-100 outline-none focus:border-sky-500 transition-colors font-medium"
+                  placeholder="Ví dụ: teacher"
+                  required
+                />
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Mật khẩu</label>
-              <input type="password" value={password} onChange={e => setPassword(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none transition-all" placeholder="Nhập mật khẩu..." required />
+
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-slate-600 ml-1">Mật khẩu</label>
+              <div className="relative">
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full pl-12 pr-4 py-3 rounded-2xl border-2 border-slate-100 outline-none focus:border-sky-500 transition-colors font-medium"
+                  placeholder="••••••••"
+                  required
+                />
+              </div>
             </div>
-            <button type="submit" className="w-full bg-sky-500 hover:bg-sky-600 text-white font-bold py-3 px-4 rounded-xl transition-colors shadow-md hover:shadow-lg mt-4">
-              Đăng nhập
+
+            <button
+              type="submit"
+              className="w-full bg-slate-800 text-white py-4 rounded-2xl font-black text-lg shadow-lg hover:bg-slate-700 transition-all active:scale-95 mt-4"
+            >
+              Đăng nhập ngay 🚀
             </button>
           </form>
         </div>
