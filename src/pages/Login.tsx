@@ -58,7 +58,27 @@ export default function Login() {
           const newUser = await register(loginEmail, password);
           
           // 2. Đăng ký thành công -> Đã đăng nhập -> Đã có quyền đọc DB
-          const firestoreUser = await getUser(loginEmail);
+          let firestoreUser = await getUser(loginEmail);
+          
+          // TỰ ĐỘNG TẠO TÀI KHOẢN PHỤ HUYNH TỪ HỌC SINH
+          if (!firestoreUser && role === "parent") {
+            // Lấy email học sinh tương ứng (VD: PH001 -> HS001)
+            const studentEmail = loginEmail.toLowerCase().replace('ph', 'hs');
+            const studentUser = await getUser(studentEmail);
+            
+            if (studentUser && studentUser.password === password) {
+              const parentUsername = loginEmail.split('@')[0].toLowerCase();
+              firestoreUser = {
+                id: parentUsername,
+                email: loginEmail.toLowerCase(),
+                role: "parent",
+                name: "Phụ huynh " + (studentUser.name || ""),
+                studentId: studentUser.id,
+                password: password
+              };
+              await setDoc(doc(db, "users", parentUsername), firestoreUser, { merge: true });
+            }
+          }
           
           if (firestoreUser) {
             // 3. Có trong danh sách lớp, kiểm tra mật khẩu gốc
@@ -93,6 +113,8 @@ export default function Login() {
               alert("Tài khoản giáo viên mới đã được tạo thành công!");
               setUser({ ...newTeacherUser, role: 'teacher', isAdmin: true });
               navigate("/dashboard");
+            } else if (role === "parent") {
+              alert("Không tìm thấy học sinh tương ứng hoặc sai mật khẩu. Vui lòng kiểm tra lại.");
             } else {
               alert("Tài khoản này chưa được Giáo viên thêm vào danh sách lớp.");
             }
@@ -122,7 +144,7 @@ export default function Login() {
     } else if (demoRole === "parent") {
       setEmail("PH001");
     } else {
-      setEmail(`${demoRole}@school.com`);
+      setEmail(`${demoRole}@school.com`.toUpperCase());
     }
     setPassword("123456");
   };
@@ -163,7 +185,7 @@ export default function Login() {
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Tên đăng nhập</label>
-              <input type="text" value={email} onChange={e => setEmail(e.target.value)} disabled={isLoading} className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none transition-all disabled:bg-gray-100 disabled:text-gray-400" placeholder="VD: HS001 hoặc email..." required />
+              <input type="text" value={email} onChange={e => setEmail(e.target.value.toUpperCase())} disabled={isLoading} className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none transition-all disabled:bg-gray-100 disabled:text-gray-400" placeholder="VD: HS001 hoặc email..." required />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Mật khẩu</label>
