@@ -318,10 +318,40 @@ export const updateAssignment = async (id: string, data: any) => {
 export const deleteAssignment = async (id: string) => {
   if (isMockMode) {
     mockData.assignments = mockData.assignments.filter(a => a.id !== id);
+    mockData.submissions = mockData.submissions.filter(s => s.assignmentId !== id);
     saveMockData();
     return;
   }
-  await deleteDoc(doc(db, "assignments", id));
+  const q = query(collection(db, "submissions"), where("assignmentId", "==", id));
+  const snapshot = await getDocs(q);
+  const deletePromises = snapshot.docs.map(d => deleteDoc(d.ref));
+  await Promise.all([...deletePromises, deleteDoc(doc(db, "assignments", id))]);
+};
+
+export const resetApp = async () => {
+  if (isMockMode) {
+    mockData.assignments = [];
+    mockData.submissions = [];
+    mockData.badges = [];
+    mockData.posts = [];
+    // Reset spinsUsed for all students
+    mockData.users.forEach(u => {
+      if (u.role === "student") {
+        u.spinsUsed = 0;
+      }
+    });
+    saveMockData();
+    return;
+  }
+  const collections = ["assignments", "submissions", "badges", "posts"];
+  for (const collName of collections) {
+    const snapshot = await getDocs(collection(db, collName));
+    const deletePromises = snapshot.docs.map(d => deleteDoc(d.ref));
+    await Promise.all(deletePromises);
+  }
+  const studentsSnapshot = await getDocs(query(collection(db, "users"), where("role", "==", "student")));
+  const updatePromises = studentsSnapshot.docs.map(d => updateDoc(d.ref, { spinsUsed: 0 }));
+  await Promise.all(updatePromises);
 };
 
 export const getPosts = async () => {
