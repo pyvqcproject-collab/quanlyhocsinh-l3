@@ -21,9 +21,9 @@ export default function StudentDashboard() {
     "10 điểm thưởng",
     "Huy hiệu Chăm chỉ",
     "Huy hiệu Thông thái",
-    "Kẹo",
+    "Tràng pháo tay",
     "Thêm 1 lượt quay",
-    "Snack"
+    "Chúc may mắn lần sau"
   ];
 
   useEffect(() => {
@@ -73,7 +73,7 @@ export default function StudentDashboard() {
       const wonPrize = prizes[index];
       setPrize(wonPrize);
       
-      if (wonPrize !== "Snack") {
+      if (wonPrize !== "Chúc may mắn lần sau") {
         confetti({
           particleCount: 100,
           spread: 70,
@@ -106,7 +106,7 @@ export default function StudentDashboard() {
           )}
           <div className="text-center sm:text-left">
             <h2 className="text-4xl sm:text-5xl font-black mb-3 drop-shadow-md">Chào bé {user?.name}! 👋</h2>
-            <p className="text-white/90 text-xl font-medium mb-6 drop-shadow-sm">Hôm nay chúng ta học môn gì nào? 🚀</p>
+            <p className="text-white/90 text-xl font-medium mb-6 drop-shadow-sm">Hôm nay bé muốn học môn gì nào? 🚀</p>
             <div className="flex flex-wrap justify-center sm:justify-start gap-4">
               <div className="bg-white/20 backdrop-blur-md rounded-3xl p-4 flex items-center gap-4 border-2 border-white/30 hover:bg-white/30 transition-colors cursor-pointer" onClick={() => setShowWheel(true)}>
                 <div className="bg-amber-400 p-3 rounded-2xl shadow-inner relative">
@@ -210,7 +210,7 @@ export default function StudentDashboard() {
                             {sub.level}
                           </span>
                         )}
-                        {sub.score !== undefined && <p className="text-2xl font-black text-slate-800 bg-slate-50 px-3 py-1 rounded-xl border-2 border-slate-200">{sub.score} <span className="text-sm text-slate-500">điểm</span></p>}
+                        {a.gradingType === 'score' && sub.score !== undefined && <p className="text-2xl font-black text-slate-800 bg-slate-50 px-3 py-1 rounded-xl border-2 border-slate-200">{sub.score} <span className="text-sm text-slate-500">điểm</span></p>}
                       </div>
                     ) : (
                       <span className="bg-amber-100 text-amber-700 px-4 py-2 rounded-xl text-sm font-black border-2 border-amber-200 flex items-center gap-2">
