@@ -37,6 +37,7 @@ export default function TeacherDashboard() {
   const [filterProgress, setFilterProgress] = useState("");
   const [filterResult, setFilterResult] = useState("");
   const [selectedChartData, setSelectedChartData] = useState<{ assignmentName: string, category: string, students: any[] } | null>(null);
+  const [submissionFilter, setSubmissionFilter] = useState("pending");
 
   useEffect(() => {
     console.log("TeacherDashboard - Current User:", user);
@@ -706,19 +707,44 @@ export default function TeacherDashboard() {
 
       {activeTab === "submissions" && (
         <div className="space-y-6">
-          <h2 className="text-2xl font-bold text-slate-800">Chấm bài</h2>
+          <div className="flex justify-between items-center">
+            <h2 className="text-2xl font-bold text-slate-800">Chấm bài</h2>
+            <div className="flex bg-slate-100 p-1 rounded-xl">
+              <button 
+                onClick={() => setSubmissionFilter("pending")} 
+                className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${submissionFilter === "pending" ? "bg-white text-sky-600 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+              >
+                Chưa chấm ({submissions.filter(s => s.status === "submitted").length})
+              </button>
+              <button 
+                onClick={() => setSubmissionFilter("graded")} 
+                className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${submissionFilter === "graded" ? "bg-white text-sky-600 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+              >
+                Đã chấm ({submissions.filter(s => s.status === "graded").length})
+              </button>
+            </div>
+          </div>
           <div className="grid gap-6">
-            {submissions.filter(s => s.status === "submitted").map(sub => {
+            {submissions.filter(s => submissionFilter === "pending" ? s.status === "submitted" : s.status === "graded").map(sub => {
               const student = students.find(st => st.id === sub.studentId);
               const assignment = assignments.find(a => a.id === sub.assignmentId);
               return (
                 <SubmissionCard key={sub.id} sub={sub} assignment={assignment} studentName={student?.name || sub.studentId} onGrade={handleGrade} suggestComment={suggestComment} />
               );
             })}
-            {submissions.filter(s => s.status === "submitted").length === 0 && (
+            {submissions.filter(s => submissionFilter === "pending" ? s.status === "submitted" : s.status === "graded").length === 0 && (
               <div className="text-center py-12 bg-white rounded-2xl border border-slate-200 border-dashed">
-                <CheckCircle className="w-12 h-12 text-emerald-400 mx-auto mb-3" />
-                <p className="text-slate-500 font-medium">Đã chấm xong tất cả bài tập.</p>
+                {submissionFilter === "pending" ? (
+                  <>
+                    <CheckCircle className="w-12 h-12 text-emerald-400 mx-auto mb-3" />
+                    <p className="text-slate-500 font-medium">Đã chấm xong tất cả bài tập.</p>
+                  </>
+                ) : (
+                  <>
+                    <FileText className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                    <p className="text-slate-500 font-medium">Chưa có bài tập nào được chấm.</p>
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -1016,15 +1042,22 @@ function SubmissionCard({ sub, assignment, studentName, onGrade, suggestComment 
   const [isSuggesting, setIsSuggesting] = useState(false);
 
   useEffect(() => {
-    if (assignment?.type === "quiz" || assignment?.type === "video") {
+    if (sub.status === "graded") {
+      setGradeData({
+        level: sub.level || "Hoàn thành",
+        score: sub.score !== undefined ? sub.score : 10,
+        comment: sub.comment || "",
+        stars: sub.stars || 0
+      });
+    } else if (assignment?.type === "quiz" || assignment?.type === "video") {
       let correctCount = 0;
       assignment.questions?.forEach((q: any, i: number) => {
         const studentAnswer = sub.content?.text ? sub.content.text[i] : sub.content[i];
         if (studentAnswer === q.answer) correctCount++;
       });
-      setGradeData(prev => ({ ...prev, stars: correctCount }));
+      setGradeData(prev => ({ ...prev, stars: correctCount, score: correctCount }));
     } else {
-      setGradeData(prev => ({ ...prev, stars: 1 }));
+      setGradeData(prev => ({ ...prev, stars: 1, score: 10 }));
     }
   }, [assignment, sub]);
 
@@ -1044,7 +1077,9 @@ function SubmissionCard({ sub, assignment, studentName, onGrade, suggestComment 
           <h3 className="font-bold text-slate-800 text-lg">{studentName}</h3>
           <p className="text-sm text-slate-500">{assignment?.title}</p>
         </div>
-        <span className="text-xs font-medium bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full">Đã nộp</span>
+        <span className={`text-xs font-medium px-3 py-1 rounded-full ${sub.status === 'graded' ? 'bg-sky-100 text-sky-700' : 'bg-emerald-100 text-emerald-700'}`}>
+          {sub.status === 'graded' ? 'Đã chấm' : 'Đã nộp'}
+        </span>
       </div>
       
       <div className="bg-slate-50 p-4 rounded-xl mb-4 border border-slate-100">
@@ -1139,7 +1174,28 @@ function SubmissionCard({ sub, assignment, studentName, onGrade, suggestComment 
       </div>
 
       {!isGrading ? (
-        <button onClick={() => setIsGrading(true)} className="bg-sky-500 text-white px-6 py-2 rounded-xl font-medium hover:bg-sky-600 transition-colors">Chấm bài</button>
+        <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+          {sub.status === "graded" && (
+            <div className="flex gap-4 items-center">
+              <div className="bg-sky-50 px-4 py-2 rounded-xl border border-sky-100">
+                <p className="text-xs text-sky-600 font-medium">Kết quả hiện tại</p>
+                <p className="font-bold text-slate-800">
+                  {assignment?.gradingType === 'score' ? `${sub.score} điểm` : sub.level}
+                </p>
+              </div>
+              <div className="bg-amber-50 px-4 py-2 rounded-xl border border-amber-100">
+                <p className="text-xs text-amber-600 font-medium">Sao thưởng</p>
+                <p className="font-bold text-amber-500">{sub.stars} 🌟</p>
+              </div>
+            </div>
+          )}
+          <button 
+            onClick={() => setIsGrading(true)} 
+            className={`${sub.status === 'graded' ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : 'bg-sky-500 text-white hover:bg-sky-600'} px-6 py-2 rounded-xl font-medium transition-colors flex items-center gap-2`}
+          >
+            {sub.status === 'graded' ? <><Edit className="w-4 h-4" /> Chấm lại</> : 'Chấm bài'}
+          </button>
+        </div>
       ) : (
         <div className="space-y-4 border-t border-slate-100 pt-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
