@@ -31,6 +31,12 @@ export default function TeacherDashboard() {
   const [isCreatingPost, setIsCreatingPost] = useState(false);
   const [editingPost, setEditingPost] = useState<any>(null);
   const [studentSearchTerm, setStudentSearchTerm] = useState("");
+  const [filterId, setFilterId] = useState("");
+  const [filterName, setFilterName] = useState("");
+  const [filterGender, setFilterGender] = useState("");
+  const [filterProgress, setFilterProgress] = useState("");
+  const [filterResult, setFilterResult] = useState("");
+  const [selectedChartData, setSelectedChartData] = useState<{ assignmentName: string, category: string, students: any[] } | null>(null);
 
   useEffect(() => {
     console.log("TeacherDashboard - Current User:", user);
@@ -85,7 +91,7 @@ export default function TeacherDashboard() {
         await createAssignment({ ...newAssignment, status: "active" });
       }
       setIsCreating(false);
-      setNewAssignment({ title: "", description: "", imageUrl: "", type: "essay", dueDate: "", videoUrl: "", gradingType: "level", questions: [], attachments: [] });
+      setNewAssignment({ title: "", description: "", imageUrl: "", type: "essay", dueDate: "", videoUrl: "", gradingType: "level", questions: [] });
       loadData();
     } catch (error: any) {
       alert("Lỗi: " + error.message);
@@ -291,6 +297,69 @@ export default function TeacherDashboard() {
     };
   });
 
+  const getStudentMetrics = (studentId: string) => {
+    const total = assignments.length;
+    const studentSubs = submissions.filter(s => s.studentId === studentId);
+    const submitted = studentSubs.length;
+    const percentage = total === 0 ? 0 : Math.round((submitted / total) * 100);
+    
+    let emojis = "";
+    let good = 0, ok = 0, bad = 0;
+    
+    assignments.forEach(a => {
+      const sub = studentSubs.find(s => s.assignmentId === a.id);
+      if (!sub) {
+        emojis += "❌ ";
+      } else if (sub.status === "graded") {
+        if (sub.level === "Hoàn thành tốt" || sub.score >= 8) {
+          emojis += "🌟 ";
+          good++;
+        } else if (sub.level === "Hoàn thành" || (sub.score >= 5 && sub.score < 8)) {
+          emojis += "👍 ";
+          ok++;
+        } else {
+          emojis += "⚠️ ";
+          bad++;
+        }
+      } else {
+        emojis += "⏳ ";
+      }
+    });
+    
+    let overallResult = "";
+    if (good > ok && good > bad) overallResult = "Tốt";
+    else if (bad > good && bad > ok) overallResult = "Chưa đạt";
+    else if (submitted > 0) overallResult = "Đạt";
+
+    return { total, submitted, percentage, emojis, overallResult };
+  };
+
+  const handleChartClick = (data: any, category: string) => {
+    const assignment = assignments.find(a => a.title.substring(0, 10) === data.name);
+    if (!assignment) return;
+
+    const subs = submissions.filter(s => s.assignmentId === assignment.id && s.status === "graded");
+    let filteredSubs: any[] = [];
+    if (category === "Tốt") {
+      filteredSubs = subs.filter(s => s.level === "Hoàn thành tốt" || (s.score >= 8));
+    } else if (category === "Đạt") {
+      filteredSubs = subs.filter(s => s.level === "Hoàn thành" || (s.score >= 5 && s.score < 8));
+    } else if (category === "Chưa đạt") {
+      filteredSubs = subs.filter(s => s.level === "Chưa hoàn thành" || (s.score < 5));
+    }
+
+    const studentList = filteredSubs.map(sub => {
+      const st = students.find(s => s.id === sub.studentId);
+      return st ? st.name : sub.studentId;
+    });
+
+    setSelectedChartData({
+      assignmentName: assignment.title,
+      category,
+      students: studentList
+    });
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex gap-4 border-b border-slate-200 pb-2 overflow-x-auto justify-between items-center">
@@ -348,18 +417,66 @@ export default function TeacherDashboard() {
                 <tr>
                   <th className="p-4 font-semibold text-slate-600">Mã số</th>
                   <th className="p-4 font-semibold text-slate-600">Họ tên</th>
-                  <th className="p-4 font-semibold text-slate-600">Ngày sinh</th>
                   <th className="p-4 font-semibold text-slate-600">Giới tính</th>
+                  <th className="p-4 font-semibold text-slate-600">Tiến độ</th>
+                  <th className="p-4 font-semibold text-slate-600">Kết quả</th>
                   <th className="p-4 font-semibold text-slate-600 text-right">Thao tác</th>
+                </tr>
+                <tr className="bg-slate-50 border-b border-slate-100">
+                  <th className="px-4 pb-3"><input type="text" placeholder="Lọc mã..." className="w-full px-2 py-1 text-sm rounded border outline-none font-normal" value={filterId} onChange={e => setFilterId(e.target.value)} /></th>
+                  <th className="px-4 pb-3"><input type="text" placeholder="Lọc tên..." className="w-full px-2 py-1 text-sm rounded border outline-none font-normal" value={filterName} onChange={e => setFilterName(e.target.value)} /></th>
+                  <th className="px-4 pb-3">
+                    <select className="w-full px-2 py-1 text-sm rounded border outline-none font-normal" value={filterGender} onChange={e => setFilterGender(e.target.value)}>
+                      <option value="">Tất cả</option>
+                      <option value="Nam">Nam</option>
+                      <option value="Nữ">Nữ</option>
+                    </select>
+                  </th>
+                  <th className="px-4 pb-3">
+                    <select className="w-full px-2 py-1 text-sm rounded border outline-none font-normal" value={filterProgress} onChange={e => setFilterProgress(e.target.value)}>
+                      <option value="">Tất cả</option>
+                      <option value="100">Hoàn thành 100%</option>
+                      <option value=">0">Đang làm</option>
+                      <option value="0">Chưa làm</option>
+                    </select>
+                  </th>
+                  <th className="px-4 pb-3">
+                    <select className="w-full px-2 py-1 text-sm rounded border outline-none font-normal" value={filterResult} onChange={e => setFilterResult(e.target.value)}>
+                      <option value="">Tất cả</option>
+                      <option value="Tốt">Tốt</option>
+                      <option value="Đạt">Đạt</option>
+                      <option value="Chưa đạt">Chưa đạt</option>
+                    </select>
+                  </th>
+                  <th className="px-4 pb-3"></th>
                 </tr>
               </thead>
               <tbody>
-                {students.filter(s => s.name.toLowerCase().includes(studentSearchTerm.toLowerCase()) || s.id.toLowerCase().includes(studentSearchTerm.toLowerCase())).map(s => (
+                {students.filter(s => {
+                  const metrics = getStudentMetrics(s.id);
+                  const matchId = s.id.toLowerCase().includes(filterId.toLowerCase());
+                  const matchName = s.name.toLowerCase().includes(filterName.toLowerCase());
+                  const matchGender = filterGender ? s.gender === filterGender : true;
+                  const matchProgress = filterProgress === "100" ? metrics.percentage === 100 : filterProgress === ">0" ? (metrics.percentage > 0 && metrics.percentage < 100) : filterProgress === "0" ? metrics.percentage === 0 : true;
+                  const matchResult = filterResult ? metrics.overallResult === filterResult : true;
+                  const matchSearch = s.name.toLowerCase().includes(studentSearchTerm.toLowerCase()) || s.id.toLowerCase().includes(studentSearchTerm.toLowerCase());
+                  return matchId && matchName && matchGender && matchProgress && matchResult && matchSearch;
+                }).map(s => {
+                  const metrics = getStudentMetrics(s.id);
+                  return (
                   <tr key={s.id} className="border-b border-slate-50 hover:bg-slate-50">
                     <td className="p-4 font-medium text-slate-800">{s.id}</td>
                     <td className="p-4 text-slate-600">{s.name}</td>
-                    <td className="p-4 text-slate-600">{s.birthdate}</td>
                     <td className="p-4 text-slate-600">{s.gender}</td>
+                    <td className="p-4 text-slate-600">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium">{metrics.submitted}/{metrics.total} ({metrics.percentage}%)</span>
+                        <div className="w-16 h-2 bg-slate-200 rounded-full overflow-hidden">
+                          <div className="h-full bg-sky-500" style={{ width: `${metrics.percentage}%` }}></div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="p-4 text-slate-600 text-lg tracking-widest">{metrics.emojis}</td>
                     <td className="p-4 text-right">
                       <div className="flex justify-end gap-2">
                         <button onClick={() => handleEditStudent(s)} className="p-2 text-amber-500 hover:bg-amber-50 rounded-lg"><Edit className="w-4 h-4" /></button>
@@ -367,7 +484,7 @@ export default function TeacherDashboard() {
                       </div>
                     </td>
                   </tr>
-                ))}
+                )})}
               </tbody>
             </table>
           </div>
@@ -611,12 +728,34 @@ export default function TeacherDashboard() {
                 <YAxis />
                 <Tooltip />
                 <Legend />
-                <Bar dataKey="Tốt" fill="#10b981" />
-                <Bar dataKey="Đạt" fill="#3b82f6" />
-                <Bar dataKey="Chưa đạt" fill="#f43f5e" />
+                <Bar dataKey="Tốt" fill="#10b981" onClick={(data) => handleChartClick(data, 'Tốt')} cursor="pointer" />
+                <Bar dataKey="Đạt" fill="#3b82f6" onClick={(data) => handleChartClick(data, 'Đạt')} cursor="pointer" />
+                <Bar dataKey="Chưa đạt" fill="#f43f5e" onClick={(data) => handleChartClick(data, 'Chưa đạt')} cursor="pointer" />
               </BarChart>
             </ResponsiveContainer>
           </div>
+          {selectedChartData && (
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 mt-6 animate-in fade-in slide-in-from-bottom-4">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-bold text-slate-800">
+                  Học sinh đạt mức <span className={selectedChartData.category === 'Tốt' ? 'text-emerald-500' : selectedChartData.category === 'Đạt' ? 'text-blue-500' : 'text-rose-500'}>{selectedChartData.category}</span> - {selectedChartData.assignmentName}
+                </h3>
+                <button onClick={() => setSelectedChartData(null)} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5" /></button>
+              </div>
+              {selectedChartData.students.length > 0 ? (
+                <ul className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                  {selectedChartData.students.map((name, idx) => (
+                    <li key={idx} className="bg-slate-50 px-4 py-2 rounded-xl text-slate-700 flex items-center gap-2 font-medium">
+                      <div className={`w-2 h-2 rounded-full ${selectedChartData.category === 'Tốt' ? 'bg-emerald-500' : selectedChartData.category === 'Đạt' ? 'bg-blue-500' : 'bg-rose-500'}`}></div>
+                      {name}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-slate-500 italic">Không có học sinh nào trong nhóm này.</p>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -798,37 +937,27 @@ export default function TeacherDashboard() {
                   
                   alert("Cập nhật thành công! Hệ thống sẽ tự động đăng xuất để bạn đăng nhập lại với thông tin mới.");
                   await logout();
+                  window.location.href = "/login";
                 } catch (authError: any) {
-                  console.error("Auth update error:", authError);
-                  if (authError.code === 'auth/requires-recent-login') {
-                    alert("Cập nhật thành công! Tuy nhiên vì lý do bảo mật, bạn cần đăng nhập lại với thông tin cũ một lần nữa trước khi hệ thống áp dụng mật khẩu mới.");
-                    await logout();
+                  console.error("Auth sync failed:", authError);
+                  if (authError.code === 'auth/operation-not-allowed') {
+                    alert("Đã lưu vào Cơ sở dữ liệu, nhưng hệ thống đăng nhập (Firebase) chưa cho phép đổi tên đăng nhập.\n\nCÁCH KHẮC PHỤC:\n1. Vào Firebase Console -> Authentication -> Settings.\n2. Bật (Enable) mục 'Email address change' trong phần 'User actions'.\n3. Thử lại sau khi đã bật.");
                   } else {
-                    alert(`Đã cập nhật dữ liệu nhưng gặp lỗi khi đổi thông tin đăng nhập: ${authError.message}`);
+                    alert("Đã lưu mật khẩu mới vào Cơ sở dữ liệu. Tuy nhiên, do yêu cầu bảo mật của Google, bạn cần Đăng xuất và Đăng nhập lại NGAY LẬP TỨC để mật khẩu mới có hiệu lực trên hệ thống đăng nhập. (Lỗi: " + authError.message + ")");
                   }
                 }
               } catch (error: any) {
-                console.error("Full update error:", error);
+                console.error("Update failed:", error);
                 alert("Lỗi khi cập nhật: " + error.message);
               } finally {
                 submitBtn.disabled = false;
                 submitBtn.innerText = originalText;
-                form.reset();
               }
             }} className="space-y-4 max-w-md">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Tên đăng nhập mới (tùy chọn)</label>
-                <input type="text" name="newUsername" placeholder="VD: GV002" className="w-full px-4 py-2 rounded-xl border border-slate-200 outline-none" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Mật khẩu mới (tùy chọn)</label>
-                <input type="password" name="newPassword" placeholder="Nhập mật khẩu mới" className="w-full px-4 py-2 rounded-xl border border-slate-200 outline-none" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Xác nhận mật khẩu mới</label>
-                <input type="password" name="confirmPassword" placeholder="Nhập lại mật khẩu mới" className="w-full px-4 py-2 rounded-xl border border-slate-200 outline-none" />
-              </div>
-              <button type="submit" className="bg-sky-500 text-white px-6 py-2 rounded-xl font-medium w-full hover:bg-sky-600 transition-colors">Cập nhật thông tin</button>
+              <input type="text" name="newUsername" placeholder="Tên đăng nhập mới (để trống nếu không đổi)" className="w-full px-4 py-2 rounded-xl border border-slate-200 outline-none" />
+              <input type="password" name="newPassword" placeholder="Mật khẩu mới (để trống nếu không đổi)" className="w-full px-4 py-2 rounded-xl border border-slate-200 outline-none" />
+              <input type="password" name="confirmPassword" placeholder="Xác nhận mật khẩu mới" className="w-full px-4 py-2 rounded-xl border border-slate-200 outline-none" />
+              <button type="submit" className="bg-slate-800 text-white px-6 py-2 rounded-xl w-full disabled:opacity-50">Cập nhật</button>
             </form>
           </div>
         </div>
@@ -838,152 +967,52 @@ export default function TeacherDashboard() {
 }
 
 function SubmissionCard({ sub, assignment, studentName, onGrade, suggestComment }: any) {
-  const [isGrading, setIsGrading] = useState(false);
-  const [gradeData, setGradeData] = useState({ level: "Hoàn thành", score: 10, comment: "" });
-  const [isSuggesting, setIsSuggesting] = useState(false);
+  const [comment, setComment] = useState("");
+  const [level, setLevel] = useState("Hoàn thành");
+  const [score, setScore] = useState<number | "">("");
+  const [loadingAI, setLoadingAI] = useState(false);
 
   const handleSuggest = async () => {
-    setIsSuggesting(true);
+    setLoadingAI(true);
     const suggestion = await suggestComment(sub.content, studentName);
-    setGradeData({ ...gradeData, comment: suggestion.comment, level: suggestion.level || gradeData.level });
-    setIsSuggesting(false);
+    if (suggestion) {
+      setComment(suggestion.comment || "");
+      if (suggestion.level) setLevel(suggestion.level);
+    }
+    setLoadingAI(false);
   };
 
   return (
     <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-      <div className="flex justify-between items-start mb-4">
-        <div>
-          <h3 className="font-bold text-slate-800 text-lg">{studentName}</h3>
-          <p className="text-sm text-slate-500">{assignment?.title}</p>
-        </div>
-        <span className="text-xs font-medium bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full">Đã nộp</span>
+      <div className="mb-4">
+        <h3 className="font-bold text-lg">{assignment?.title || "Bài tập"}</h3>
+        <p className="text-sm text-slate-500">Học sinh: {studentName}</p>
       </div>
-      
       <div className="bg-slate-50 p-4 rounded-xl mb-4 border border-slate-100">
-        <p className="text-sm font-medium text-slate-500 mb-2">Bài làm:</p>
-        {assignment?.type === "essay" && (
-          <div className="space-y-4">
-            <p className="text-slate-700 whitespace-pre-wrap">{sub.content?.text || sub.content}</p>
-            {sub.content?.attachments && sub.content.attachments.length > 0 && (
-              <div className="mt-4 pt-4 border-t border-slate-200">
-                <p className="text-sm font-bold text-slate-600 mb-2">Tệp đính kèm:</p>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                  {sub.content.attachments.map((att: Attachment, i: number) => (
-                    <div key={i} className="rounded-xl overflow-hidden border-2 border-slate-200 bg-white aspect-square flex flex-col">
-                      {att.type === 'image' ? (
-                        <img src={att.url} alt={att.name} className="w-full h-full object-cover" />
-                      ) : (
-                        <a href={att.url} target="_blank" rel="noopener noreferrer" className="flex-1 flex flex-col items-center justify-center p-2 text-center hover:bg-slate-50 transition-colors">
-                          {att.type === 'link' ? <ImageIcon className="w-8 h-8 text-amber-400 mb-1" /> : <Paperclip className="w-8 h-8 text-emerald-400 mb-1" />}
-                          <span className="text-xs font-bold text-slate-600 line-clamp-2 break-all">{att.name}</span>
-                        </a>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-        {assignment?.type === "drawing" && (
-          <div className="space-y-4">
-            <img src={sub.content?.text || sub.content} alt="Bài vẽ" className="max-w-full h-auto rounded-xl border border-slate-200" />
-            {sub.content?.attachments && sub.content.attachments.length > 0 && (
-              <div className="mt-4 pt-4 border-t border-slate-200">
-                <p className="text-sm font-bold text-slate-600 mb-2">Tệp đính kèm:</p>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                  {sub.content.attachments.map((att: Attachment, i: number) => (
-                    <div key={i} className="rounded-xl overflow-hidden border-2 border-slate-200 bg-white aspect-square flex flex-col">
-                      {att.type === 'image' ? (
-                        <img src={att.url} alt={att.name} className="w-full h-full object-cover" />
-                      ) : (
-                        <a href={att.url} target="_blank" rel="noopener noreferrer" className="flex-1 flex flex-col items-center justify-center p-2 text-center hover:bg-slate-50 transition-colors">
-                          {att.type === 'link' ? <ImageIcon className="w-8 h-8 text-amber-400 mb-1" /> : <Paperclip className="w-8 h-8 text-emerald-400 mb-1" />}
-                          <span className="text-xs font-bold text-slate-600 line-clamp-2 break-all">{att.name}</span>
-                        </a>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-        {(assignment?.type === "quiz" || assignment?.type === "video") && (
-          <div className="space-y-4">
-            <div className="space-y-3">
-              {assignment.questions?.map((q: any, i: number) => {
-                const studentAnswer = sub.content?.text ? sub.content.text[i] : sub.content[i];
-                const isCorrect = studentAnswer === q.answer;
-                return (
-                  <div key={i} className={`p-3 rounded-xl border ${isCorrect ? 'bg-emerald-50 border-emerald-200' : 'bg-rose-50 border-rose-200'}`}>
-                    <p className="font-medium text-slate-800 mb-1">Câu {i + 1}: {q.q}</p>
-                    <div className="flex items-center gap-2 text-sm">
-                      <span className="text-slate-600">Học sinh chọn: <strong className={isCorrect ? 'text-emerald-600' : 'text-rose-600'}>{studentAnswer || "Chưa trả lời"}</strong></span>
-                      {isCorrect ? <CheckCircle2 className="w-4 h-4 text-emerald-500" /> : <XCircle className="w-4 h-4 text-rose-500" />}
-                    </div>
-                    {!isCorrect && <p className="text-sm text-emerald-600 mt-1">Đáp án đúng: <strong>{q.answer}</strong></p>}
-                  </div>
-                );
-              })}
-            </div>
-            {sub.content?.attachments && sub.content.attachments.length > 0 && (
-              <div className="mt-4 pt-4 border-t border-slate-200">
-                <p className="text-sm font-bold text-slate-600 mb-2">Tệp đính kèm:</p>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                  {sub.content.attachments.map((att: Attachment, i: number) => (
-                    <div key={i} className="rounded-xl overflow-hidden border-2 border-slate-200 bg-white aspect-square flex flex-col">
-                      {att.type === 'image' ? (
-                        <img src={att.url} alt={att.name} className="w-full h-full object-cover" />
-                      ) : (
-                        <a href={att.url} target="_blank" rel="noopener noreferrer" className="flex-1 flex flex-col items-center justify-center p-2 text-center hover:bg-slate-50 transition-colors">
-                          {att.type === 'link' ? <ImageIcon className="w-8 h-8 text-amber-400 mb-1" /> : <Paperclip className="w-8 h-8 text-emerald-400 mb-1" />}
-                          <span className="text-xs font-bold text-slate-600 line-clamp-2 break-all">{att.name}</span>
-                        </a>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
+        {assignment?.type === 'drawing' ? (
+          <img src={sub.content} alt="Bài vẽ" className="max-w-full h-auto rounded-xl" />
+        ) : (
+          <p className="text-slate-700 whitespace-pre-wrap">{typeof sub.content === 'string' ? sub.content : JSON.stringify(sub.content)}</p>
         )}
       </div>
-
-      {!isGrading ? (
-        <button onClick={() => setIsGrading(true)} className="bg-sky-500 text-white px-6 py-2 rounded-xl font-medium hover:bg-sky-600 transition-colors">Chấm bài</button>
-      ) : (
-        <div className="space-y-4 border-t border-slate-100 pt-4">
-          {assignment?.gradingType === "score" ? (
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Điểm số (0-10)</label>
-              <input type="number" min="0" max="10" value={gradeData.score} onChange={e => setGradeData({...gradeData, score: Number(e.target.value)})} className="w-full px-4 py-2 rounded-xl border border-slate-200 outline-none" />
-            </div>
-          ) : (
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Mức độ hoàn thành</label>
-              <select value={gradeData.level} onChange={e => setGradeData({...gradeData, level: e.target.value})} className="w-full px-4 py-2 rounded-xl border border-slate-200 outline-none">
-                <option value="Hoàn thành tốt">Hoàn thành tốt</option>
-                <option value="Hoàn thành">Hoàn thành</option>
-                <option value="Chưa hoàn thành">Chưa hoàn thành</option>
-              </select>
-            </div>
-          )}
-          <div>
-            <div className="flex justify-between items-center mb-1">
-              <label className="block text-sm font-medium text-slate-700">Nhận xét</label>
-              <button type="button" onClick={handleSuggest} disabled={isSuggesting} className="text-xs text-sky-600 flex items-center gap-1 hover:underline">
-                <Sparkles className="w-3 h-3" /> {isSuggesting ? "Đang tạo..." : "AI Gợi ý"}
-              </button>
-            </div>
-            <textarea value={gradeData.comment} onChange={e => setGradeData({...gradeData, comment: e.target.value})} className="w-full px-4 py-2 rounded-xl border border-slate-200 outline-none min-h-[80px]"></textarea>
-          </div>
+      <div className="space-y-4">
+        <button onClick={handleSuggest} disabled={loadingAI} className="bg-indigo-50 text-indigo-600 px-4 py-2 rounded-xl font-medium flex items-center gap-2 transition-colors disabled:opacity-50">
+          <Sparkles className="w-4 h-4" /> {loadingAI ? "AI đang gợi ý..." : "AI Gợi ý nhận xét"}
+        </button>
+        <textarea value={comment} onChange={e => setComment(e.target.value)} placeholder="Nhận xét..." className="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none min-h-[100px]" />
+        <div className="flex items-center justify-between">
           <div className="flex gap-3">
-            <button onClick={() => setIsGrading(false)} className="px-4 py-2 text-slate-600 font-medium">Hủy</button>
-            <button onClick={() => { onGrade(sub.id, gradeData); setIsGrading(false); }} className="bg-emerald-500 text-white px-6 py-2 rounded-xl font-medium hover:bg-emerald-600 transition-colors">Lưu kết quả</button>
+            {assignment?.gradingType === 'score' ? (
+              <input type="number" value={score} onChange={e => setScore(e.target.value ? Number(e.target.value) : "")} className="w-20 px-3 py-2 rounded-xl border border-slate-200 text-center font-bold" placeholder="Điểm" />
+            ) : (
+              ["Hoàn thành tốt", "Hoàn thành", "Chưa hoàn thành"].map(l => (
+                <button key={l} onClick={() => setLevel(l)} className={`px-4 py-2 rounded-xl border-2 font-medium transition-colors ${level === l ? 'border-sky-500 bg-sky-50 text-sky-700' : 'border-slate-100 text-slate-500'}`}>{l}</button>
+              ))
+            )}
           </div>
+          <button onClick={() => onGrade(sub.id, { comment, level: assignment?.gradingType === 'score' ? undefined : level, score: assignment?.gradingType === 'score' ? score : undefined })} className="bg-emerald-500 text-white px-6 py-2 rounded-xl font-bold">Lưu</button>
         </div>
-      )}
+      </div>
     </div>
   );
 }
