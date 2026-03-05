@@ -138,6 +138,17 @@ export const getBadges = async (studentId: string) => {
   return snapshot.docs.map(d => Object.assign({ id: d.id }, d.data()));
 };
 
+export const addBadge = async (data: any) => {
+  if (isMockMode) {
+    const newBadge = { id: generateId(), ...data };
+    mockData.badges.push(newBadge);
+    saveMockData();
+    return newBadge;
+  }
+  const docRef = await addDoc(collection(db, "badges"), data);
+  return { id: docRef.id, ...data };
+};
+
 export const getStudents = async () => {
   if (isMockMode) return mockData.users.filter(u => u.role === "student");
   const q = query(collection(db, "users"), where("role", "==", "student"));
@@ -150,6 +161,21 @@ export const getTeachers = async () => {
   const q = query(collection(db, "users"), where("role", "==", "teacher"));
   const snapshot = await getDocs(q);
   return snapshot.docs.map(d => Object.assign({ id: d.id }, d.data()));
+};
+
+const cleanUserData = (data: any) => {
+  const cleaned = { ...data };
+  if (cleaned.email) {
+    cleaned.email = cleaned.email.toLowerCase();
+  } else if ('email' in cleaned) {
+    delete cleaned.email;
+  }
+  Object.keys(cleaned).forEach(key => {
+    if (cleaned[key] === undefined) {
+      delete cleaned[key];
+    }
+  });
+  return cleaned;
 };
 
 export const addStudent = async (data: any) => {
@@ -167,7 +193,7 @@ export const addStudent = async (data: any) => {
   const docRef = doc(db, "users", id);
   const docSnap = await getDoc(docRef);
   if (docSnap.exists()) throw new Error("Username already exists");
-  await setDoc(docRef, { role: "student", ...data, email: data.email?.toLowerCase() });
+  await setDoc(docRef, { role: "student", ...cleanUserData(data) });
   return { id, ...data };
 };
 
@@ -186,7 +212,7 @@ export const addTeacher = async (data: any) => {
   const docRef = doc(db, "users", id);
   const docSnap = await getDoc(docRef);
   if (docSnap.exists()) throw new Error("Username already exists");
-  await setDoc(docRef, { role: "teacher", ...data, email: data.email?.toLowerCase() });
+  await setDoc(docRef, { role: "teacher", ...cleanUserData(data) });
   return { id, ...data };
 };
 
@@ -207,6 +233,8 @@ export const updateStudent = async (id: string, data: any) => {
     }
     return null;
   }
+  
+  const cleanedData = cleanUserData(data);
   if (normalizedNewId && normalizedNewId !== normalizedId) {
     const newDocRef = doc(db, "users", normalizedNewId);
     const newDocSnap = await getDoc(newDocRef);
@@ -214,11 +242,11 @@ export const updateStudent = async (id: string, data: any) => {
     const oldDocRef = doc(db, "users", normalizedId);
     const oldDocSnap = await getDoc(oldDocRef);
     if (oldDocSnap.exists()) {
-      await setDoc(newDocRef, { ...oldDocSnap.data(), ...data, id: normalizedNewId, email: data.email?.toLowerCase() });
+      await setDoc(newDocRef, { ...oldDocSnap.data(), ...cleanedData, id: normalizedNewId });
       await deleteDoc(oldDocRef);
     }
   } else {
-    await updateDoc(doc(db, "users", normalizedId), { ...data, email: data.email?.toLowerCase() });
+    await updateDoc(doc(db, "users", normalizedId), cleanedData);
   }
 };
 
@@ -239,6 +267,8 @@ export const updateTeacher = async (id: string, data: any) => {
     }
     return null;
   }
+  
+  const cleanedData = cleanUserData(data);
   if (normalizedNewId && normalizedNewId !== normalizedId) {
     const newDocRef = doc(db, "users", normalizedNewId);
     const newDocSnap = await getDoc(newDocRef);
@@ -246,11 +276,11 @@ export const updateTeacher = async (id: string, data: any) => {
     const oldDocRef = doc(db, "users", normalizedId);
     const oldDocSnap = await getDoc(oldDocRef);
     if (oldDocSnap.exists()) {
-      await setDoc(newDocRef, { ...oldDocSnap.data(), ...data, id: normalizedNewId, email: data.email?.toLowerCase() });
+      await setDoc(newDocRef, { ...oldDocSnap.data(), ...cleanedData, id: normalizedNewId });
       await deleteDoc(oldDocRef);
     }
   } else {
-    await updateDoc(doc(db, "users", normalizedId), { ...data, email: data.email?.toLowerCase() });
+    await updateDoc(doc(db, "users", normalizedId), cleanedData);
   }
 };
 
