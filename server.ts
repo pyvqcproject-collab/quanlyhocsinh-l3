@@ -119,13 +119,13 @@ async function startServer() {
 
       const response = await ai.models.generateContent({
         model: "gemini-2.5-flash-preview-tts",
-        contents: [{ parts: [{ text: `Đọc văn bản sau bằng tiếng Việt: ${text}` }] }],
+        contents: [{ parts: [{ text: `Hãy đọc đoạn văn bản sau bằng giọng người Việt Nam bản xứ, phát âm chuẩn, rõ ràng, có cảm xúc: ${text}` }] }],
         config: {
-          systemInstruction: "Bạn là một người Việt Nam bản xứ. Hãy đọc văn bản được cung cấp bằng tiếng Việt một cách tự nhiên, rõ ràng, đúng ngữ điệu và trọng âm của tiếng Việt. Chỉ trả về âm thanh của nội dung văn bản.",
+          systemInstruction: "Bạn là một người Việt Nam bản xứ, nói tiếng Việt chuẩn (giọng Hà Nội hoặc Sài Gòn tự nhiên). Hãy đọc văn bản được cung cấp một cách truyền cảm, đúng trọng âm, đúng ngữ điệu của người Việt. Tuyệt đối không được có âm hưởng hay giọng lơ lớ của người nước ngoài. Chỉ trả về dữ liệu âm thanh.",
           responseModalities: [Modality.AUDIO],
           speechConfig: {
             voiceConfig: {
-              prebuiltVoiceConfig: { voiceName: 'Kore' },
+              prebuiltVoiceConfig: { voiceName: 'Puck' },
             },
           },
         },
