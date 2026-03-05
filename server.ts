@@ -1,7 +1,7 @@
 import express from "express";
 import { createServer as createViteServer } from "vite";
 import fs from "fs";
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenAI, Type, Modality } from "@google/genai";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -103,6 +103,42 @@ async function startServer() {
       res.json(result);
     } catch (error: any) {
       console.error("AI Analysis Error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // API Route: AI TTS
+  app.post("/api/ai/tts", async (req, res) => {
+    try {
+      const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
+      if (!apiKey || apiKey === "MY_GEMINI_API_KEY") {
+        return res.status(500).json({ error: "Gemini API key is missing or invalid." });
+      }
+      const ai = new GoogleGenAI({ apiKey: apiKey.trim() });
+      const { text } = req.body;
+
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash-preview-tts",
+        contents: [{ parts: [{ text: `Đọc văn bản sau bằng tiếng Việt: ${text}` }] }],
+        config: {
+          systemInstruction: "Bạn là một người Việt Nam bản xứ. Hãy đọc văn bản được cung cấp bằng tiếng Việt một cách tự nhiên, rõ ràng, đúng ngữ điệu và trọng âm của tiếng Việt. Chỉ trả về âm thanh của nội dung văn bản.",
+          responseModalities: [Modality.AUDIO],
+          speechConfig: {
+            voiceConfig: {
+              prebuiltVoiceConfig: { voiceName: 'Kore' },
+            },
+          },
+        },
+      });
+
+      const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+      if (base64Audio) {
+        res.json({ audioData: `data:audio/mp3;base64,${base64Audio}` });
+      } else {
+        res.status(500).json({ error: "Không thể tạo âm thanh." });
+      }
+    } catch (error: any) {
+      console.error("TTS Error:", error);
       res.status(500).json({ error: error.message });
     }
   });
