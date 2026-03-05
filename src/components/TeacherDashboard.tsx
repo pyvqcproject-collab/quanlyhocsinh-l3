@@ -315,37 +315,45 @@ export default function TeacherDashboard() {
 
   const getStudentMetrics = (studentId: string) => {
     const total = assignments.length;
-    const studentSubs = submissions.filter(s => s.studentId === studentId);
+    // Only count submissions that belong to assignments that currently exist
+    const studentSubs = submissions.filter(s => 
+      s.studentId === studentId && 
+      assignments.some(a => a.id === s.assignmentId)
+    );
     const submitted = studentSubs.length;
     const percentage = total === 0 ? 0 : Math.round((submitted / total) * 100);
     
     let emojis = "";
     let good = 0, ok = 0, bad = 0;
     
-    assignments.forEach(a => {
-      const sub = studentSubs.find(s => s.assignmentId === a.id);
-      if (!sub) {
-        emojis += "❌ ";
-      } else if (sub.status === "graded") {
-        if (sub.level === "Hoàn thành tốt" || sub.score >= 8) {
-          emojis += "🌟 ";
-          good++;
-        } else if (sub.level === "Hoàn thành" || (sub.score >= 5 && sub.score < 8)) {
-          emojis += "👍 ";
-          ok++;
+    if (total > 0) {
+      assignments.forEach(a => {
+        const sub = studentSubs.find(s => s.assignmentId === a.id);
+        if (!sub) {
+          emojis += "❌ ";
+        } else if (sub.status === "graded") {
+          if (sub.level === "Hoàn thành tốt" || sub.score >= 8) {
+            emojis += "🌟 ";
+            good++;
+          } else if (sub.level === "Hoàn thành" || (sub.score >= 5 && sub.score < 8)) {
+            emojis += "👍 ";
+            ok++;
+          } else {
+            emojis += "⚠️ ";
+            bad++;
+          }
         } else {
-          emojis += "⚠️ ";
-          bad++;
+          emojis += "⏳ ";
         }
-      } else {
-        emojis += "⏳ ";
-      }
-    });
+      });
+    }
     
     let overallResult = "";
-    if (good > ok && good > bad) overallResult = "Tốt";
-    else if (bad > good && bad > ok) overallResult = "Chưa đạt";
-    else if (submitted > 0) overallResult = "Đạt";
+    if (total > 0) {
+      if (good > ok && good > bad) overallResult = "Tốt";
+      else if (bad > good && bad > ok) overallResult = "Chưa đạt";
+      else if (submitted > 0) overallResult = "Đạt";
+    }
 
     return { total, submitted, percentage, emojis, overallResult };
   };
@@ -732,7 +740,12 @@ export default function TeacherDashboard() {
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
               <p className="text-sm font-medium text-slate-500">Tỷ lệ nộp bài</p>
               <p className="text-2xl font-bold text-slate-800">
-                {assignments.length > 0 && students.length > 0 ? Math.round((submissions.length / (assignments.length * students.length)) * 100) : 0}%
+                {(() => {
+                  const validSubmissions = submissions.filter(s => assignments.some(a => a.id === s.assignmentId));
+                  return assignments.length > 0 && students.length > 0 
+                    ? Math.round((validSubmissions.length / (assignments.length * students.length)) * 100) 
+                    : 0;
+                })()}%
               </p>
             </div>
           </div>
