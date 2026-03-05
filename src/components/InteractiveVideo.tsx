@@ -82,30 +82,30 @@ export default function InteractiveVideo({ videoUrl, questions, onComplete }: { 
           />
           
           {currentQuestion && (
-            <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-4 sm:p-8 z-10 animate-in fade-in duration-300">
-              <div className="bg-white p-8 sm:p-10 rounded-[2.5rem] max-w-2xl w-full shadow-2xl transform transition-all scale-100 relative max-h-[90vh] overflow-y-auto border-4 border-sky-200">
+            <div className="fixed inset-0 bg-slate-900/90 backdrop-blur-xl flex items-center justify-center p-4 sm:p-8 z-[9999] animate-in fade-in zoom-in duration-300">
+              <div className="bg-white p-6 sm:p-10 rounded-[2.5rem] max-w-2xl w-full shadow-2xl transform transition-all scale-100 relative max-h-[95vh] overflow-y-auto border-4 border-sky-200">
                 <div className="absolute top-0 left-0 w-32 h-32 bg-sky-50 rounded-br-full -z-10"></div>
                 <button 
                   onClick={(e) => { e.preventDefault(); e.stopPropagation(); speak(currentQuestion.q); }}
-                  className="absolute top-6 right-6 p-3 text-sky-500 hover:bg-sky-100 rounded-2xl transition-all hover:scale-110 active:scale-95 bg-slate-50 border-2 border-slate-100"
+                  className="absolute top-4 right-4 sm:top-6 sm:right-6 p-3 text-sky-500 hover:bg-sky-100 rounded-2xl transition-all hover:scale-110 active:scale-95 bg-slate-50 border-2 border-slate-100"
                   title="Đọc câu hỏi"
                 >
-                  <Volume2 className="w-6 h-6" />
+                  <Volume2 className="w-5 h-5 sm:w-6 sm:h-6" />
                 </button>
-                <h3 className="text-3xl font-black text-slate-800 mb-8 pr-16 leading-tight">{currentQuestion.q}</h3>
+                <h3 className="text-2xl sm:text-3xl font-black text-slate-800 mb-6 sm:mb-8 pr-12 sm:pr-16 leading-tight">{currentQuestion.q}</h3>
                 {currentQuestion.imageUrl && (
-                  <div className="mb-8 rounded-[2rem] overflow-hidden border-4 border-slate-100 shadow-sm">
-                    <img src={currentQuestion.imageUrl} alt="Question image" className="w-full h-auto max-h-[300px] object-contain bg-slate-50" referrerPolicy="no-referrer" />
+                  <div className="mb-6 sm:mb-8 rounded-[1.5rem] sm:rounded-[2rem] overflow-hidden border-4 border-slate-100 shadow-sm">
+                    <img src={currentQuestion.imageUrl} alt="Question image" className="w-full h-auto max-h-[250px] sm:max-h-[300px] object-contain bg-slate-50" referrerPolicy="no-referrer" />
                   </div>
                 )}
-                <div className="space-y-4">
+                <div className="space-y-3 sm:space-y-4">
                   {currentQuestion.options?.map((opt: string) => (
                     <button
                       key={opt}
                       onClick={() => handleAnswer(opt)}
-                      className="w-full text-left px-8 py-5 rounded-[1.5rem] border-4 border-slate-100 hover:border-sky-400 hover:bg-sky-50 hover:shadow-md hover:-translate-y-1 transition-all font-bold text-xl text-slate-700 flex items-center gap-4 group"
+                      className="w-full text-left px-6 py-4 sm:px-8 sm:py-5 rounded-[1.2rem] sm:rounded-[1.5rem] border-4 border-slate-100 hover:border-sky-400 hover:bg-sky-50 hover:shadow-md hover:-translate-y-1 transition-all font-bold text-lg sm:text-xl text-slate-700 flex items-center gap-3 sm:gap-4 group"
                     >
-                      <div className="w-8 h-8 rounded-full border-4 border-slate-300 group-hover:border-sky-400 flex-shrink-0 transition-colors"></div>
+                      <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full border-4 border-slate-300 group-hover:border-sky-400 flex-shrink-0 transition-colors"></div>
                       {opt}
                     </button>
                   ))}
