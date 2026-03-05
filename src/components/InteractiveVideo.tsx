@@ -1,7 +1,7 @@
 import React, { useState, useRef } from "react";
 import YouTube from "react-youtube";
 import { CheckCircle, Volume2 } from "lucide-react";
-import { speak } from "../pages/AssignmentView";
+import { TTSButton } from "./TTSButton";
 
 export default function InteractiveVideo({ videoUrl, questions, onComplete }: { videoUrl: string, questions: any[], onComplete: (data: any) => void }) {
   const [currentQuestion, setCurrentQuestion] = useState<any>(null);
@@ -85,13 +85,9 @@ export default function InteractiveVideo({ videoUrl, questions, onComplete }: { 
             <div className="fixed inset-0 bg-slate-900/90 backdrop-blur-xl flex items-center justify-center p-4 sm:p-8 z-[9999] animate-in fade-in zoom-in duration-300">
               <div className="bg-white p-6 sm:p-10 rounded-[2.5rem] max-w-2xl w-full shadow-2xl transform transition-all scale-100 relative max-h-[95vh] overflow-y-auto border-4 border-sky-200">
                 <div className="absolute top-0 left-0 w-32 h-32 bg-sky-50 rounded-br-full -z-10"></div>
-                <button 
-                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); speak(currentQuestion.q); }}
-                  className="absolute top-4 right-4 sm:top-6 sm:right-6 p-3 text-sky-500 hover:bg-sky-100 rounded-2xl transition-all hover:scale-110 active:scale-95 bg-slate-50 border-2 border-slate-100"
-                  title="Đọc câu hỏi"
-                >
-                  <Volume2 className="w-5 h-5 sm:w-6 sm:h-6" />
-                </button>
+                <div className="absolute top-4 right-4 sm:top-6 sm:right-6">
+                  <TTSButton text={currentQuestion.q} className="bg-slate-50 border-2 border-slate-100 p-3" />
+                </div>
                 <h3 className="text-2xl sm:text-3xl font-black text-slate-800 mb-6 sm:mb-8 pr-12 sm:pr-16 leading-tight">{currentQuestion.q}</h3>
                 {currentQuestion.imageUrl && (
                   <div className="mb-6 sm:mb-8 rounded-[1.5rem] sm:rounded-[2rem] overflow-hidden border-4 border-slate-100 shadow-sm">
