@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { getAssignments, getSubmissions, createAssignment, gradeSubmission, getStudents, addStudent, updateAssignment, deleteAssignment, updateStudent, deleteStudent, undoLastAction, getPosts, createPost, deletePost, updatePost, getAppSettings, updateAppSettings, getTeachers, addTeacher, updateTeacher, deleteTeacher } from "../firebase/db";
+import { getAssignments, getSubmissions, createAssignment, gradeSubmission, getStudents, addStudent, updateAssignment, deleteAssignment, resetApp, updateStudent, deleteStudent, undoLastAction, getPosts, createPost, deletePost, updatePost, getAppSettings, updateAppSettings, getTeachers, addTeacher, updateTeacher, deleteTeacher } from "../firebase/db";
 import { updateUserPassword, updateUserEmail, logout } from "../firebase/auth";
 import { Plus, FileText, Video, PenTool, CheckCircle, Sparkles, BarChart2, Users, Edit, Trash2, Upload, Download, Undo2, Image as ImageIcon, Paperclip, Settings, X, CheckCircle2, XCircle } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
@@ -99,8 +99,20 @@ export default function TeacherDashboard() {
   };
 
   const handleDeleteAssignment = async (id: string) => {
+    if (!confirm("Bạn có chắc chắn muốn xóa bài tập này? Tất cả bài làm và điểm thưởng của học sinh liên quan cũng sẽ bị xóa.")) return;
     await deleteAssignment(id);
     loadData();
+  };
+
+  const handleResetApp = async () => {
+    if (!confirm("CẢNH BÁO: Bạn đang thực hiện reset cho năm học mới. Hành động này sẽ xóa TẤT CẢ bài tập, bài làm, huy hiệu và bài viết trên bảng tin. Bạn có chắc chắn muốn tiếp tục?")) return;
+    try {
+      await resetApp();
+      alert("Đã reset dữ liệu thành công cho năm học mới!");
+      loadData();
+    } catch (error: any) {
+      alert("Lỗi khi reset: " + error.message);
+    }
   };
 
   const handleEditAssignment = (a: any) => {
@@ -278,9 +290,13 @@ export default function TeacherDashboard() {
     loadData();
   };
 
-  const suggestComment = async (content: string, studentName: string) => {
+  const suggestComment = async (content: string, studentName: string, assignment: any) => {
     try {
-      const res = await fetch("/api/ai/suggest-comment", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content, studentName }) });
+      const res = await fetch("/api/ai/suggest-comment", { 
+        method: "POST", 
+        headers: { "Content-Type": "application/json" }, 
+        body: JSON.stringify({ content, studentName, assignment }) 
+      });
       return await res.json();
     } catch (e) {
       return { comment: "Bài làm tốt.", level: "Hoàn thành" };
@@ -959,6 +975,21 @@ export default function TeacherDashboard() {
               <input type="password" name="confirmPassword" placeholder="Xác nhận mật khẩu mới" className="w-full px-4 py-2 rounded-xl border border-slate-200 outline-none" />
               <button type="submit" className="bg-slate-800 text-white px-6 py-2 rounded-xl w-full disabled:opacity-50">Cập nhật</button>
             </form>
+          </div>
+
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+            <h3 className="text-lg font-bold mb-4 text-rose-600">Khu vực nguy hiểm</h3>
+            <div className="p-4 bg-rose-50 rounded-xl border border-rose-100">
+              <p className="text-sm text-rose-800 mb-4">
+                <strong>Reset cho năm học mới:</strong> Hành động này sẽ xóa toàn bộ bài tập, bài làm, huy hiệu và bài viết. Danh sách học sinh và giáo viên sẽ được giữ lại nhưng số lượt quay đã dùng của học sinh sẽ được reset về 0.
+              </p>
+              <button 
+                onClick={handleResetApp}
+                className="bg-rose-500 text-white px-6 py-2 rounded-xl font-medium hover:bg-rose-600 transition-colors flex items-center gap-2"
+              >
+                <Trash2 className="w-5 h-5" /> Reset dữ liệu năm học mới
+              </button>
+            </div>
           </div>
         </div>
       )}
