@@ -1,112 +1,137 @@
 import React, { useRef, useState } from 'react';
-import { Paperclip, Image as ImageIcon, Link as LinkIcon, X, UploadCloud } from 'lucide-react';
+import { Paperclip, Image as ImageIcon, Link as LinkIcon, X, Upload } from 'lucide-react';
 
-export type AttachmentType = 'image' | 'file' | 'link';
-
-export interface Attachment {
-  type: AttachmentType;
+export type Attachment = {
+  type: 'image' | 'file' | 'link';
   url: string;
   name: string;
-}
+};
 
 interface AttachmentManagerProps {
   attachments: Attachment[];
   onChange: (attachments: Attachment[]) => void;
-  maxFiles?: number;
+  label?: string;
 }
 
-export default function AttachmentManager({ attachments, onChange, maxFiles = 5 }: AttachmentManagerProps) {
+export default function AttachmentManager({ attachments, onChange, label = "Đính kèm" }: AttachmentManagerProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const imageInputRef = useRef<HTMLInputElement>(null);
   const [showLinkInput, setShowLinkInput] = useState(false);
-  const [linkUrl, setLinkUrl] = useState('');
-  const [linkName, setLinkName] = useState('');
+  const [linkUrl, setLinkUrl] = useState("");
+  const [linkName, setLinkName] = useState("");
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, type: AttachmentType) => {
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
-
-    if (attachments.length + files.length > maxFiles) {
-      alert(`Bạn chỉ có thể đính kèm tối đa ${maxFiles} tệp.`);
-      return;
-    }
-
+    
     Array.from(files).forEach(file => {
       const reader = new FileReader();
       reader.onload = (evt) => {
         if (evt.target?.result) {
-          onChange([...attachments, {
-            type,
-            url: evt.target.result as string,
-            name: file.name
-          }]);
+          const type = file.type.startsWith('image/') ? 'image' : 'file';
+          onChange([...attachments, { type, url: evt.target.result as string, name: file.name }]);
         }
       };
       reader.readAsDataURL(file);
     });
-
-    if (e.target) e.target.value = '';
+    
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
   };
 
   const handleAddLink = () => {
-    if (!linkUrl) return;
-    onChange([...attachments, {
-      type: 'link',
-      url: linkUrl,
-      name: linkName || linkUrl
-    }]);
-    setLinkUrl('');
-    setLinkName('');
-    setShowLinkInput(false);
+    if (linkUrl) {
+      onChange([...attachments, { type: 'link', url: linkUrl, name: linkName || linkUrl }]);
+      setLinkUrl("");
+      setLinkName("");
+      setShowLinkInput(false);
+    }
   };
 
   const removeAttachment = (index: number) => {
-    onChange(attachments.filter((_, i) => i !== index));
+    const newAttachments = [...attachments];
+    newAttachments.splice(index, 1);
+    onChange(newAttachments);
   };
 
   return (
-    <div className="mt-6 border-t-4 border-slate-100 pt-6">
-      <h4 className="text-lg font-bold text-slate-700 mb-4 flex items-center gap-2">
-        <Paperclip className="w-5 h-5 text-sky-500" /> Đính kèm tài liệu
-      </h4>
-      
-      <div className="flex flex-wrap gap-3 mb-6">
-        <button type="button" onClick={() => imageInputRef.current?.click()} className="flex items-center gap-2 px-4 py-2 bg-sky-50 text-sky-600 rounded-xl font-semibold hover:bg-sky-100 transition-colors border-2 border-sky-100">
-          <ImageIcon className="w-5 h-5" /> Thêm ảnh
-        </button>
-        <button type="button" onClick={() => fileInputRef.current?.click()} className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-600 rounded-xl font-semibold hover:bg-emerald-100 transition-colors border-2 border-emerald-100">
-          <UploadCloud className="w-5 h-5" /> Thêm File
-        </button>
-        <button type="button" onClick={() => setShowLinkInput(!showLinkInput)} className="flex items-center gap-2 px-4 py-2 bg-amber-50 text-amber-600 rounded-xl font-semibold hover:bg-amber-100 transition-colors border-2 border-amber-100">
-          <LinkIcon className="w-5 h-5" /> Thêm Link
-        </button>
-
-        <input type="file" accept="image/*" multiple className="hidden" ref={imageInputRef} onChange={e => handleFileUpload(e, 'image')} />
-        <input type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt" multiple className="hidden" ref={fileInputRef} onChange={e => handleFileUpload(e, 'file')} />
+    <div className="mt-4 border-t-2 border-slate-100 pt-4">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-4">
+        <h4 className="text-lg font-bold text-slate-700 flex items-center gap-2">
+          <Paperclip className="w-5 h-5 text-sky-500" /> {label}
+        </h4>
+        <div className="flex gap-2">
+          <button 
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="flex items-center gap-2 px-4 py-2 bg-sky-50 hover:bg-sky-100 text-sky-600 rounded-xl font-medium transition-colors border border-sky-100"
+          >
+            <Upload className="w-4 h-4" /> Tải file/ảnh
+          </button>
+          <button 
+            type="button"
+            onClick={() => setShowLinkInput(!showLinkInput)}
+            className="flex items-center gap-2 px-4 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 rounded-xl font-medium transition-colors border border-emerald-100"
+          >
+            <LinkIcon className="w-4 h-4" /> Thêm link
+          </button>
+        </div>
+        <input 
+          type="file" 
+          multiple 
+          className="hidden" 
+          ref={fileInputRef}
+          onChange={handleFileUpload}
+        />
       </div>
 
       {showLinkInput && (
-        <div className="flex gap-2 mb-6 bg-amber-50 p-4 rounded-xl border-2 border-amber-100">
-          <input type="url" placeholder="Đường dẫn (URL)..." value={linkUrl} onChange={e => setLinkUrl(e.target.value)} className="flex-1 px-3 py-2 rounded-lg border border-amber-200 outline-none focus:ring-2 focus:ring-amber-400" />
-          <input type="text" placeholder="Tên hiển thị (tùy chọn)..." value={linkName} onChange={e => setLinkName(e.target.value)} className="flex-1 px-3 py-2 rounded-lg border border-amber-200 outline-none focus:ring-2 focus:ring-amber-400" />
-          <button type="button" onClick={handleAddLink} className="bg-amber-500 text-white px-4 py-2 rounded-lg font-bold hover:bg-amber-600">Thêm</button>
+        <div className="flex gap-2 mb-4 p-4 bg-slate-50 rounded-xl border border-slate-200">
+          <input 
+            type="url" 
+            placeholder="URL (https://...)" 
+            value={linkUrl} 
+            onChange={e => setLinkUrl(e.target.value)} 
+            className="flex-1 px-3 py-2 rounded-lg border border-slate-200 outline-none" 
+          />
+          <input 
+            type="text" 
+            placeholder="Tên hiển thị (tùy chọn)" 
+            value={linkName} 
+            onChange={e => setLinkName(e.target.value)} 
+            className="flex-1 px-3 py-2 rounded-lg border border-slate-200 outline-none" 
+          />
+          <button type="button" onClick={handleAddLink} className="px-4 py-2 bg-emerald-500 text-white rounded-lg font-medium">Thêm</button>
         </div>
       )}
-
+      
       {attachments.length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-4">
           {attachments.map((att, i) => (
-            <div key={i} className="relative group rounded-2xl overflow-hidden border-4 border-slate-100 hover:border-sky-300 transition-colors bg-white shadow-sm flex flex-col aspect-square">
+            <div key={i} className="relative group flex items-center gap-3 p-3 rounded-xl border border-slate-200 bg-white shadow-sm hover:border-sky-300 transition-colors">
               {att.type === 'image' ? (
-                <img src={att.url} alt={att.name} className="w-full h-full object-cover" />
+                <div className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0 border border-slate-100">
+                  <img src={att.url} alt={att.name} className="w-full h-full object-cover" />
+                </div>
+              ) : att.type === 'link' ? (
+                <div className="w-12 h-12 rounded-lg bg-emerald-50 flex items-center justify-center flex-shrink-0 text-emerald-500">
+                  <LinkIcon className="w-6 h-6" />
+                </div>
               ) : (
-                <div className="flex-1 flex flex-col items-center justify-center p-4 text-center">
-                  {att.type === 'link' ? <LinkIcon className="w-10 h-10 text-amber-400 mb-2" /> : <Paperclip className="w-10 h-10 text-emerald-400 mb-2" />}
-                  <span className="text-sm font-bold text-slate-600 line-clamp-2 break-all">{att.name}</span>
+                <div className="w-12 h-12 rounded-lg bg-sky-50 flex items-center justify-center flex-shrink-0 text-sky-500">
+                  <Paperclip className="w-6 h-6" />
                 </div>
               )}
-              <button type="button" onClick={() => removeAttachment(i)} className="absolute top-2 right-2 p-1.5 bg-rose-500 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity hover:bg-rose-600 shadow-md">
-                <X className="w-4 h-4 font-bold" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-slate-700 truncate">{att.name}</p>
+                <p className="text-xs text-slate-400 uppercase">{att.type}</p>
+              </div>
+              <button 
+                type="button"
+                onClick={() => removeAttachment(i)}
+                className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
+              >
+                <X className="w-4 h-4" />
               </button>
             </div>
           ))}
