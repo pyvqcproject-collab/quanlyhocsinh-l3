@@ -1,18 +1,35 @@
 import { useState, useEffect } from "react";
-import { getAssignments, getSubmissions, getBadges } from "../firebase/db";
+import { getAssignments, getSubmissions, getBadges, updateStudent, addBadge } from "../firebase/db";
 import { useAuth } from "../context/AuthContext";
 import { Link } from "react-router-dom";
-import { PlayCircle, CheckCircle, Star, Trophy, Clock, FileText, PenTool, Video, ArrowLeft } from "lucide-react";
+import { PlayCircle, CheckCircle, Star, Trophy, Clock, FileText, PenTool, Video, ArrowLeft, Gift, X } from "lucide-react";
+import confetti from "canvas-confetti";
 
 export default function StudentDashboard() {
   const { user } = useAuth();
   const [assignments, setAssignments] = useState<any[]>([]);
   const [submissions, setSubmissions] = useState<any[]>([]);
   const [badges, setBadges] = useState<any[]>([]);
+  const [localSpinsUsed, setLocalSpinsUsed] = useState(0);
+  
+  const [showWheel, setShowWheel] = useState(false);
+  const [isSpinning, setIsSpinning] = useState(false);
+  const [prize, setPrize] = useState<string | null>(null);
+  const [rotation, setRotation] = useState(0);
+
+  const prizes = [
+    "10 điểm thưởng",
+    "Huy hiệu Chăm chỉ",
+    "Huy hiệu Thông thái",
+    "Tràng pháo tay",
+    "Thêm 1 lượt quay",
+    "Chúc may mắn lần sau"
+  ];
 
   useEffect(() => {
     if (user) {
       loadData();
+      setLocalSpinsUsed(user.spinsUsed || 0);
     }
   }, [user]);
 
@@ -27,6 +44,53 @@ export default function StudentDashboard() {
 
   const pendingAssignments = assignments.filter(a => !submissions.find(s => s.assignmentId === a.id));
   const completedAssignments = assignments.filter(a => submissions.find(s => s.assignmentId === a.id));
+
+  const totalStars = submissions.reduce((acc, sub) => acc + (sub.stars || 0), 0);
+  const availableStars = totalStars - (localSpinsUsed * 5);
+
+  const spinWheel = async () => {
+    if (availableStars < 5 || isSpinning) return;
+    
+    setIsSpinning(true);
+    setPrize(null);
+    
+    const newSpinsUsed = localSpinsUsed + 1;
+    setLocalSpinsUsed(newSpinsUsed);
+    await updateStudent(user.id, { spinsUsed: newSpinsUsed });
+    
+    const extraSpins = 5; // number of full rotations
+    const randomDegree = Math.floor(Math.random() * 360);
+    const newRotation = rotation + (extraSpins * 360) + randomDegree;
+    setRotation(newRotation);
+    
+    setTimeout(async () => {
+      setIsSpinning(false);
+      const degrees = newRotation % 360;
+      const segment = 360 / prizes.length;
+      // Calculate which segment is at the top (0 degrees)
+      // The wheel rotates clockwise, so the top segment moves counter-clockwise relative to the wheel
+      const index = Math.floor((360 - degrees + (segment / 2)) % 360 / segment);
+      const wonPrize = prizes[index];
+      setPrize(wonPrize);
+      
+      if (wonPrize !== "Chúc may mắn lần sau") {
+        confetti({
+          particleCount: 100,
+          spread: 70,
+          origin: { y: 0.6 },
+          colors: ['#f59e0b', '#ef4444', '#3b82f6', '#10b981']
+        });
+      }
+      
+      if (wonPrize === "Thêm 1 lượt quay") {
+        setLocalSpinsUsed(prev => prev - 1);
+        await updateStudent(user.id, { spinsUsed: newSpinsUsed - 1 });
+      } else if (wonPrize.includes("Huy hiệu")) {
+        await addBadge({ studentId: user.id, name: wonPrize, icon: "🌟" });
+        loadData();
+      }
+    }, 4000);
+  };
 
   return (
     <div className="space-y-8">
@@ -44,11 +108,16 @@ export default function StudentDashboard() {
             <h2 className="text-4xl sm:text-5xl font-black mb-3 drop-shadow-md">Chào bé {user?.name}! 👋</h2>
             <p className="text-white/90 text-xl font-medium mb-6 drop-shadow-sm">Hôm nay bé muốn học môn gì nào? 🚀</p>
             <div className="flex flex-wrap justify-center sm:justify-start gap-4">
-              <div className="bg-white/20 backdrop-blur-md rounded-3xl p-4 flex items-center gap-4 border-2 border-white/30 hover:bg-white/30 transition-colors cursor-pointer">
-                <div className="bg-amber-400 p-3 rounded-2xl shadow-inner"><Star className="w-8 h-8 text-white fill-current" /></div>
+              <div className="bg-white/20 backdrop-blur-md rounded-3xl p-4 flex items-center gap-4 border-2 border-white/30 hover:bg-white/30 transition-colors cursor-pointer" onClick={() => setShowWheel(true)}>
+                <div className="bg-amber-400 p-3 rounded-2xl shadow-inner relative">
+                  <Star className="w-8 h-8 text-white fill-current" />
+                  {availableStars >= 5 && (
+                    <span className="absolute -top-2 -right-2 bg-rose-500 text-white text-xs font-bold px-2 py-1 rounded-full animate-bounce">Quay!</span>
+                  )}
+                </div>
                 <div className="text-left">
-                  <p className="text-sm font-bold text-amber-100 uppercase tracking-wider">Điểm thưởng</p>
-                  <p className="text-3xl font-black drop-shadow-sm">150 🌟</p>
+                  <p className="text-sm font-bold text-amber-100 uppercase tracking-wider">Sao thưởng</p>
+                  <p className="text-3xl font-black drop-shadow-sm">{availableStars} 🌟</p>
                 </div>
               </div>
               <div className="bg-white/20 backdrop-blur-md rounded-3xl p-4 flex items-center gap-4 border-2 border-white/30 hover:bg-white/30 transition-colors cursor-pointer">
@@ -157,6 +226,31 @@ export default function StudentDashboard() {
 
         {/* Sidebar */}
         <div className="space-y-8">
+          <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border-4 border-slate-100 relative overflow-hidden text-center">
+            <div className="absolute top-0 left-0 w-32 h-32 bg-sky-50 rounded-br-full -z-10"></div>
+            <div className="bg-amber-100 w-20 h-20 mx-auto rounded-3xl flex items-center justify-center mb-4 shadow-inner transform rotate-12">
+              <Gift className="w-10 h-10 text-amber-500" />
+            </div>
+            <h3 className="text-2xl font-black text-slate-800 mb-2">Vòng quay may mắn</h3>
+            <p className="text-slate-500 font-medium mb-6">Tích đủ 5 sao để quay và nhận quà nhé!</p>
+            <div className="bg-slate-50 rounded-2xl p-4 mb-6 border-2 border-slate-100">
+              <div className="flex justify-between items-center mb-2">
+                <span className="font-bold text-slate-600">Sao hiện có:</span>
+                <span className="font-black text-xl text-amber-500">{availableStars} 🌟</span>
+              </div>
+              <div className="w-full bg-slate-200 rounded-full h-3 overflow-hidden">
+                <div className="bg-amber-400 h-full transition-all duration-500" style={{ width: `${Math.min((availableStars / 5) * 100, 100)}%` }}></div>
+              </div>
+              <p className="text-xs text-slate-400 mt-2 font-medium">{availableStars >= 5 ? 'Đã đủ sao để quay!' : `Cần thêm ${5 - availableStars} sao nữa`}</p>
+            </div>
+            <button 
+              onClick={() => setShowWheel(true)}
+              className="w-full bg-gradient-to-r from-amber-400 to-orange-500 text-white font-black text-lg py-4 rounded-2xl shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all border-4 border-white"
+            >
+              Mở vòng quay
+            </button>
+          </div>
+
           <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border-4 border-slate-100 relative overflow-hidden">
             <div className="absolute top-0 right-0 w-32 h-32 bg-amber-50 rounded-bl-full -z-10"></div>
             <h3 className="text-2xl font-black text-slate-800 mb-8 flex items-center gap-3">
@@ -178,6 +272,84 @@ export default function StudentDashboard() {
           </div>
         </div>
       </div>
+
+      {/* Lucky Wheel Modal */}
+      {showWheel && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-[3rem] p-8 max-w-md w-full shadow-2xl relative border-8 border-amber-100">
+            <button onClick={() => !isSpinning && setShowWheel(false)} className="absolute top-6 right-6 text-slate-400 hover:text-slate-600 bg-slate-100 p-2 rounded-full transition-colors">
+              <X className="w-6 h-6" />
+            </button>
+            
+            <div className="text-center mb-8">
+              <h2 className="text-3xl font-black text-slate-800 mb-2">Vòng quay may mắn</h2>
+              <p className="text-slate-500 font-medium">Mỗi lượt quay tốn <strong className="text-amber-500">5 sao</strong></p>
+            </div>
+
+            <div className="relative w-64 h-64 mx-auto mb-8">
+              {/* Pointer */}
+              <div className={`absolute top-0 left-1/2 -translate-x-1/2 -translate-y-4 z-10 text-rose-500 drop-shadow-md ${isSpinning ? 'animate-bounce' : ''}`}>
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L2 22h20L12 2z" transform="rotate(180 12 12)"/></svg>
+              </div>
+              
+              {/* Wheel */}
+              <div 
+                className="w-full h-full rounded-full border-8 border-amber-400 shadow-inner overflow-hidden relative transition-transform duration-[4000ms] ease-[cubic-bezier(0.2,0.8,0.2,1)]"
+                style={{ transform: `rotate(${rotation}deg)` }}
+              >
+                {prizes.map((p, i) => {
+                  const angle = (360 / prizes.length) * i;
+                  return (
+                    <div 
+                      key={i} 
+                      className="absolute top-0 left-0 w-full h-full origin-center"
+                      style={{ transform: `rotate(${angle}deg)` }}
+                    >
+                      <div 
+                        className={`absolute top-0 left-1/2 -translate-x-1/2 w-32 h-32 origin-bottom flex items-start justify-center pt-4 text-xs font-bold text-white ${i % 2 === 0 ? 'bg-rose-400' : 'bg-sky-400'}`}
+                        style={{ clipPath: 'polygon(0 0, 100% 0, 50% 100%)' }}
+                      >
+                        <span className="transform -rotate-90 origin-center translate-y-8 w-24 text-center block">{p}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-12 h-12 bg-white rounded-full border-4 border-amber-400 z-10 shadow-sm flex items-center justify-center">
+                  <Star className="w-5 h-5 text-amber-400 fill-current" />
+                </div>
+              </div>
+            </div>
+
+            <div className="text-center h-20 flex flex-col items-center justify-center">
+              {prize ? (
+                <div className="animate-in zoom-in duration-300">
+                  <p className="text-slate-500 font-medium mb-1">Bé nhận được:</p>
+                  <p className="text-2xl font-black text-rose-500 bg-rose-50 px-6 py-2 rounded-2xl border-2 border-rose-100 inline-block">{prize} 🎉</p>
+                </div>
+              ) : (
+                <button 
+                  onClick={spinWheel}
+                  disabled={availableStars < 5 || isSpinning}
+                  className="bg-gradient-to-r from-amber-400 to-orange-500 text-white font-black text-xl px-12 py-4 rounded-full shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:shadow-lg border-4 border-white"
+                >
+                  {isSpinning ? 'Đang quay...' : 'QUAY NGAY!'}
+                </button>
+              )}
+            </div>
+            
+            {prize && !isSpinning && (
+              <div className="mt-6 text-center">
+                <button 
+                  onClick={() => setPrize(null)}
+                  className="text-sky-500 font-bold hover:underline"
+                >
+                  Quay tiếp ({availableStars} sao)
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
