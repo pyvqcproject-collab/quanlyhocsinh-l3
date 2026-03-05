@@ -101,7 +101,7 @@ export default function ParentDashboard() {
                           {sub.status === "graded" ? (
                             <>
                               {sub.level && <p className={`text-sm font-bold ${sub.level === 'Hoàn thành tốt' ? 'text-emerald-600' : sub.level === 'Hoàn thành' ? 'text-sky-600' : 'text-rose-600'}`}>{sub.level}</p>}
-                              {sub.score !== undefined && <p className="text-sm font-bold text-slate-800">{sub.score} điểm</p>}
+                              {a?.gradingType === 'score' && sub.score !== undefined && <p className="text-sm font-bold text-slate-800">{sub.score} điểm</p>}
                               {sub.comment && <p className="text-xs text-slate-500 mt-1 max-w-[200px] truncate">{sub.comment}</p>}
                             </>
                           ) : (
