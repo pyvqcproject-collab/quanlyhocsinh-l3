@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { getAssignments, getSubmissions, createAssignment, gradeSubmission, getStudents, addStudent, updateAssignment, deleteAssignment, resetApp, updateStudent, deleteStudent, undoLastAction, getPosts, createPost, deletePost, updatePost, getAppSettings, updateAppSettings, getTeachers, addTeacher, updateTeacher, deleteTeacher } from "../firebase/db";
 import { updateUserPassword, updateUserEmail, logout } from "../firebase/auth";
-import { Plus, FileText, Video, PenTool, CheckCircle, Sparkles, BarChart2, Users, Edit, Trash2, Upload, Download, Undo2, Image as ImageIcon, Paperclip, Settings, X, CheckCircle2, XCircle } from "lucide-react";
+import { Plus, FileText, Video, PenTool, CheckCircle, Sparkles, BarChart2, Users, Edit, Trash2, Upload, Download, Undo2, Image as ImageIcon, Paperclip, Settings, X, CheckCircle2, XCircle, Volume2 } from "lucide-react";
+import { TTSButton } from "./TTSButton";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import * as XLSX from "xlsx";
 import AttachmentManager, { Attachment } from "./AttachmentManager";
@@ -690,8 +691,12 @@ export default function TeacherDashboard() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {assignments.map(a => (
               <div key={a.id} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
-                <h3 className="font-bold text-slate-800 mb-1">{a.title}</h3>
+                <div className="flex justify-between items-start mb-1">
+                  <h3 className="font-bold text-slate-800">{a.title}</h3>
+                  <TTSButton text={`${a.title}. ${a.description || ""}`} className="p-1" />
+                </div>
                 <p className="text-xs text-slate-500 mb-3">Hạn: {a.dueDate}</p>
+                <p className="text-sm text-slate-600 mb-4 line-clamp-2">{a.description}</p>
                 <div className="flex justify-between items-center pt-4 border-t border-slate-100">
                   <span className="text-sm font-medium text-slate-600">Đã nộp: {submissions.filter(s => s.assignmentId === a.id).length}</span>
                   <div className="flex gap-2">
@@ -1077,9 +1082,12 @@ function SubmissionCard({ sub, assignment, studentName, onGrade, suggestComment 
           <h3 className="font-bold text-slate-800 text-lg">{studentName}</h3>
           <p className="text-sm text-slate-500">{assignment?.title}</p>
         </div>
-        <span className={`text-xs font-medium px-3 py-1 rounded-full ${sub.status === 'graded' ? 'bg-sky-100 text-sky-700' : 'bg-emerald-100 text-emerald-700'}`}>
-          {sub.status === 'graded' ? 'Đã chấm' : 'Đã nộp'}
-        </span>
+        <div className="flex items-center gap-2">
+          <TTSButton text={`${assignment?.title || ""}. ${assignment?.description || ""}`} className="p-1" />
+          <span className={`text-xs font-medium px-3 py-1 rounded-full ${sub.status === 'graded' ? 'bg-sky-100 text-sky-700' : 'bg-emerald-100 text-emerald-700'}`}>
+            {sub.status === 'graded' ? 'Đã chấm' : 'Đã nộp'}
+          </span>
+        </div>
       </div>
       
       <div className="bg-slate-50 p-4 rounded-xl mb-4 border border-slate-100">
