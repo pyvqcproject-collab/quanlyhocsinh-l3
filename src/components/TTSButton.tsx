@@ -12,12 +12,39 @@ export const TTSButton: React.FC<TTSButtonProps> = ({ text, className = "" }) =>
   const [audio, setAudio] = useState<HTMLAudioElement | null>(null);
 
   const handlePlay = async () => {
+    if (!text || text.trim() === "") return;
+
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+
+      const voices = window.speechSynthesis.getVoices();
+      const viVoice = voices.find(v => v.lang.startsWith('vi') || v.name.toLowerCase().includes('vietnam'));
+
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'vi-VN';
+      if (viVoice) utterance.voice = viVoice;
+      utterance.rate = 1.0;
+      utterance.pitch = 1.0;
+
+      utterance.onstart = () => setIsLoading(true);
+      utterance.onend = () => setIsLoading(false);
+      utterance.onerror = (e) => {
+        console.error("SpeechSynthesis error:", e);
+        setIsLoading(false);
+        handleGeminiFallback();
+      };
+
+      window.speechSynthesis.speak(utterance);
+    } else {
+      await handleGeminiFallback();
+    }
+  };
+
+  const handleGeminiFallback = async () => {
     if (audio) {
       audio.play();
       return;
     }
-
-    if (!text || text.trim() === "") return;
 
     setIsLoading(true);
     try {
@@ -28,7 +55,7 @@ export const TTSButton: React.FC<TTSButtonProps> = ({ text, className = "" }) =>
         newAudio.play();
       }
     } catch (error) {
-      console.error("Failed to play TTS:", error);
+      console.error("Failed to play Gemini TTS fallback:", error);
     } finally {
       setIsLoading(false);
     }
