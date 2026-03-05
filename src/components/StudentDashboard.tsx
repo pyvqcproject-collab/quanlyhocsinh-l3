@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { getAssignments, getSubmissions, getBadges, updateStudent, addBadge } from "../firebase/db";
 import { useAuth } from "../context/AuthContext";
 import { Link } from "react-router-dom";
-import { PlayCircle, CheckCircle, Star, Trophy, Clock, FileText, PenTool, Video, ArrowLeft, Gift, X } from "lucide-react";
+import { PlayCircle, CheckCircle, Star, Trophy, Clock, FileText, PenTool, Video, ArrowLeft, Gift, X, Volume2 } from "lucide-react";
+import { TTSButton } from "./TTSButton";
 import confetti from "canvas-confetti";
 
 export default function StudentDashboard() {
@@ -153,16 +154,19 @@ export default function StudentDashboard() {
               {pendingAssignments.map(a => (
                 <Link to={`/assignment/${a.id}`} key={a.id} className="group bg-white p-6 rounded-[2rem] shadow-sm border-4 border-slate-100 hover:border-sky-400 hover:shadow-xl transition-all hover:-translate-y-2 block relative overflow-hidden">
                   <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-sky-100 to-transparent rounded-bl-[3rem] -z-10 group-hover:scale-110 transition-transform"></div>
-                  <div className="flex items-start justify-between mb-4">
+                  <div className="flex justify-between items-start mb-4">
                     <div className={`p-4 rounded-2xl shadow-inner ${a.type === 'essay' ? 'bg-amber-100 text-amber-600' : a.type === 'video' ? 'bg-rose-100 text-rose-600' : a.type === 'drawing' ? 'bg-emerald-100 text-emerald-600' : 'bg-sky-100 text-sky-600'}`}>
                       {a.type === 'essay' && <FileText className="w-8 h-8" />}
                       {a.type === 'video' && <Video className="w-8 h-8" />}
                       {a.type === 'drawing' && <PenTool className="w-8 h-8" />}
                       {a.type === 'quiz' && <CheckCircle className="w-8 h-8" />}
                     </div>
-                    <span className="flex items-center gap-1 text-sm font-bold text-rose-600 bg-rose-100 px-3 py-1.5 rounded-xl border-2 border-rose-200">
-                      <Clock className="w-4 h-4" /> {a.dueDate}
-                    </span>
+                    <div className="flex flex-col items-end gap-2">
+                      <span className="flex items-center gap-1 text-sm font-bold text-rose-600 bg-rose-100 px-3 py-1.5 rounded-xl border-2 border-rose-200">
+                        <Clock className="w-4 h-4" /> {a.dueDate}
+                      </span>
+                      <TTSButton text={`${a.title}. ${a.description || ""}`} className="bg-white shadow-sm border border-slate-100" />
+                    </div>
                   </div>
                   <h4 className="font-black text-xl text-slate-800 mb-2 group-hover:text-sky-600 transition-colors">{a.title}</h4>
                   <p className="text-base font-medium text-slate-500 line-clamp-2">
