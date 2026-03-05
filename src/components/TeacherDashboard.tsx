@@ -91,7 +91,7 @@ export default function TeacherDashboard() {
         await createAssignment({ ...newAssignment, status: "active" });
       }
       setIsCreating(false);
-      setNewAssignment({ title: "", description: "", imageUrl: "", type: "essay", dueDate: "", videoUrl: "", gradingType: "level", questions: [] });
+      setNewAssignment({ title: "", description: "", imageUrl: "", type: "essay", dueDate: "", videoUrl: "", gradingType: "level", questions: [], attachments: [] });
       loadData();
     } catch (error: any) {
       alert("Lỗi: " + error.message);
@@ -967,52 +967,173 @@ export default function TeacherDashboard() {
 }
 
 function SubmissionCard({ sub, assignment, studentName, onGrade, suggestComment }: any) {
-  const [comment, setComment] = useState("");
-  const [level, setLevel] = useState("Hoàn thành");
-  const [score, setScore] = useState<number | "">("");
-  const [loadingAI, setLoadingAI] = useState(false);
+  const [isGrading, setIsGrading] = useState(false);
+  const [gradeData, setGradeData] = useState({ level: "Hoàn thành", score: 10, comment: "", stars: 0 });
+  const [isSuggesting, setIsSuggesting] = useState(false);
+
+  useEffect(() => {
+    if (assignment?.type === "quiz" || assignment?.type === "video") {
+      let correctCount = 0;
+      assignment.questions?.forEach((q: any, i: number) => {
+        const studentAnswer = sub.content?.text ? sub.content.text[i] : sub.content[i];
+        if (studentAnswer === q.answer) correctCount++;
+      });
+      setGradeData(prev => ({ ...prev, stars: correctCount }));
+    } else {
+      setGradeData(prev => ({ ...prev, stars: 1 }));
+    }
+  }, [assignment, sub]);
 
   const handleSuggest = async () => {
-    setLoadingAI(true);
+    setIsSuggesting(true);
     const suggestion = await suggestComment(sub.content, studentName);
     if (suggestion) {
-      setComment(suggestion.comment || "");
-      if (suggestion.level) setLevel(suggestion.level);
+      setGradeData({ ...gradeData, comment: suggestion.comment || "", level: suggestion.level || gradeData.level });
     }
-    setLoadingAI(false);
+    setIsSuggesting(false);
   };
 
   return (
     <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-      <div className="mb-4">
-        <h3 className="font-bold text-lg">{assignment?.title || "Bài tập"}</h3>
-        <p className="text-sm text-slate-500">Học sinh: {studentName}</p>
+      <div className="flex justify-between items-start mb-4">
+        <div>
+          <h3 className="font-bold text-slate-800 text-lg">{studentName}</h3>
+          <p className="text-sm text-slate-500">{assignment?.title}</p>
+        </div>
+        <span className="text-xs font-medium bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full">Đã nộp</span>
       </div>
+      
       <div className="bg-slate-50 p-4 rounded-xl mb-4 border border-slate-100">
-        {assignment?.type === 'drawing' ? (
-          <img src={sub.content} alt="Bài vẽ" className="max-w-full h-auto rounded-xl" />
-        ) : (
-          <p className="text-slate-700 whitespace-pre-wrap">{typeof sub.content === 'string' ? sub.content : JSON.stringify(sub.content)}</p>
-        )}
-      </div>
-      <div className="space-y-4">
-        <button onClick={handleSuggest} disabled={loadingAI} className="bg-indigo-50 text-indigo-600 px-4 py-2 rounded-xl font-medium flex items-center gap-2 transition-colors disabled:opacity-50">
-          <Sparkles className="w-4 h-4" /> {loadingAI ? "AI đang gợi ý..." : "AI Gợi ý nhận xét"}
-        </button>
-        <textarea value={comment} onChange={e => setComment(e.target.value)} placeholder="Nhận xét..." className="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none min-h-[100px]" />
-        <div className="flex items-center justify-between">
-          <div className="flex gap-3">
-            {assignment?.gradingType === 'score' ? (
-              <input type="number" value={score} onChange={e => setScore(e.target.value ? Number(e.target.value) : "")} className="w-20 px-3 py-2 rounded-xl border border-slate-200 text-center font-bold" placeholder="Điểm" />
-            ) : (
-              ["Hoàn thành tốt", "Hoàn thành", "Chưa hoàn thành"].map(l => (
-                <button key={l} onClick={() => setLevel(l)} className={`px-4 py-2 rounded-xl border-2 font-medium transition-colors ${level === l ? 'border-sky-500 bg-sky-50 text-sky-700' : 'border-slate-100 text-slate-500'}`}>{l}</button>
-              ))
+        <p className="text-sm font-medium text-slate-500 mb-2">Bài làm:</p>
+        {assignment?.type === "essay" && (
+          <div className="space-y-4">
+            <p className="text-slate-700 whitespace-pre-wrap">{sub.content?.text || sub.content}</p>
+            {sub.content?.attachments && sub.content.attachments.length > 0 && (
+              <div className="mt-4 pt-4 border-t border-slate-200">
+                <p className="text-sm font-bold text-slate-600 mb-2">Tệp đính kèm:</p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                  {sub.content.attachments.map((att: any, i: number) => (
+                    <div key={i} className="rounded-xl overflow-hidden border-2 border-slate-200 bg-white aspect-square flex flex-col">
+                      {att.type === 'image' ? (
+                        <img src={att.url} alt={att.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <a href={att.url} target="_blank" rel="noopener noreferrer" className="flex-1 flex flex-col items-center justify-center p-2 text-center hover:bg-slate-50 transition-colors">
+                          {att.type === 'link' ? <ImageIcon className="w-8 h-8 text-amber-400 mb-1" /> : <Paperclip className="w-8 h-8 text-emerald-400 mb-1" />}
+                          <span className="text-xs font-bold text-slate-600 line-clamp-2 break-all">{att.name}</span>
+                        </a>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
           </div>
-          <button onClick={() => onGrade(sub.id, { comment, level: assignment?.gradingType === 'score' ? undefined : level, score: assignment?.gradingType === 'score' ? score : undefined })} className="bg-emerald-500 text-white px-6 py-2 rounded-xl font-bold">Lưu</button>
-        </div>
+        )}
+        {assignment?.type === "drawing" && (
+          <div className="space-y-4">
+            <img src={sub.content?.text || sub.content} alt="Bài vẽ" className="max-w-full h-auto rounded-xl border border-slate-200" />
+            {sub.content?.attachments && sub.content.attachments.length > 0 && (
+              <div className="mt-4 pt-4 border-t border-slate-200">
+                <p className="text-sm font-bold text-slate-600 mb-2">Tệp đính kèm:</p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                  {sub.content.attachments.map((att: any, i: number) => (
+                    <div key={i} className="rounded-xl overflow-hidden border-2 border-slate-200 bg-white aspect-square flex flex-col">
+                      {att.type === 'image' ? (
+                        <img src={att.url} alt={att.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <a href={att.url} target="_blank" rel="noopener noreferrer" className="flex-1 flex flex-col items-center justify-center p-2 text-center hover:bg-slate-50 transition-colors">
+                          {att.type === 'link' ? <ImageIcon className="w-8 h-8 text-amber-400 mb-1" /> : <Paperclip className="w-8 h-8 text-emerald-400 mb-1" />}
+                          <span className="text-xs font-bold text-slate-600 line-clamp-2 break-all">{att.name}</span>
+                        </a>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+        {(assignment?.type === "quiz" || assignment?.type === "video") && (
+          <div className="space-y-4">
+            <div className="space-y-3">
+              {assignment.questions?.map((q: any, i: number) => {
+                const studentAnswer = sub.content?.text ? sub.content.text[i] : sub.content[i];
+                const isCorrect = studentAnswer === q.answer;
+                return (
+                  <div key={i} className={`p-3 rounded-xl border ${isCorrect ? 'bg-emerald-50 border-emerald-200' : 'bg-rose-50 border-rose-200'}`}>
+                    <p className="font-medium text-slate-800 mb-1">Câu {i + 1}: {q.q}</p>
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="text-slate-600">Học sinh chọn: <strong className={isCorrect ? 'text-emerald-600' : 'text-rose-600'}>{studentAnswer || "Chưa trả lời"}</strong></span>
+                      {isCorrect ? <CheckCircle2 className="w-4 h-4 text-emerald-500" /> : <XCircle className="w-4 h-4 text-rose-500" />}
+                    </div>
+                    {!isCorrect && <p className="text-sm text-emerald-600 mt-1">Đáp án đúng: <strong>{q.answer}</strong></p>}
+                  </div>
+                );
+              })}
+            </div>
+            {sub.content?.attachments && sub.content.attachments.length > 0 && (
+              <div className="mt-4 pt-4 border-t border-slate-200">
+                <p className="text-sm font-bold text-slate-600 mb-2">Tệp đính kèm:</p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                  {sub.content.attachments.map((att: any, i: number) => (
+                    <div key={i} className="rounded-xl overflow-hidden border-2 border-slate-200 bg-white aspect-square flex flex-col">
+                      {att.type === 'image' ? (
+                        <img src={att.url} alt={att.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <a href={att.url} target="_blank" rel="noopener noreferrer" className="flex-1 flex flex-col items-center justify-center p-2 text-center hover:bg-slate-50 transition-colors">
+                          {att.type === 'link' ? <ImageIcon className="w-8 h-8 text-amber-400 mb-1" /> : <Paperclip className="w-8 h-8 text-emerald-400 mb-1" />}
+                          <span className="text-xs font-bold text-slate-600 line-clamp-2 break-all">{att.name}</span>
+                        </a>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
+
+      {!isGrading ? (
+        <button onClick={() => setIsGrading(true)} className="bg-sky-500 text-white px-6 py-2 rounded-xl font-medium hover:bg-sky-600 transition-colors">Chấm bài</button>
+      ) : (
+        <div className="space-y-4 border-t border-slate-100 pt-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {assignment?.gradingType === "score" ? (
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Điểm số (0-10)</label>
+                <input type="number" min="0" max="10" value={gradeData.score} onChange={e => setGradeData({...gradeData, score: Number(e.target.value)})} className="w-full px-4 py-2 rounded-xl border border-slate-200 outline-none" />
+              </div>
+            ) : (
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Mức độ hoàn thành</label>
+                <select value={gradeData.level} onChange={e => setGradeData({...gradeData, level: e.target.value})} className="w-full px-4 py-2 rounded-xl border border-slate-200 outline-none">
+                  <option value="Hoàn thành tốt">Hoàn thành tốt</option>
+                  <option value="Hoàn thành">Hoàn thành</option>
+                  <option value="Chưa hoàn thành">Chưa hoàn thành</option>
+                </select>
+              </div>
+            )}
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Số sao thưởng 🌟</label>
+              <input type="number" min="0" value={gradeData.stars} onChange={e => setGradeData({...gradeData, stars: Number(e.target.value)})} className="w-full px-4 py-2 rounded-xl border border-slate-200 outline-none font-bold text-amber-500" />
+            </div>
+          </div>
+          <div>
+            <div className="flex justify-between items-center mb-1">
+              <label className="block text-sm font-medium text-slate-700">Nhận xét</label>
+              <button type="button" onClick={handleSuggest} disabled={isSuggesting} className="text-xs text-sky-600 flex items-center gap-1 hover:underline">
+                <Sparkles className="w-3 h-3" /> {isSuggesting ? "Đang tạo..." : "AI Gợi ý"}
+              </button>
+            </div>
+            <textarea value={gradeData.comment} onChange={e => setGradeData({...gradeData, comment: e.target.value})} className="w-full px-4 py-2 rounded-xl border border-slate-200 outline-none min-h-[80px]"></textarea>
+          </div>
+          <div className="flex gap-3">
+            <button onClick={() => setIsGrading(false)} className="px-4 py-2 text-slate-600 font-medium">Hủy</button>
+            <button onClick={() => { onGrade(sub.id, gradeData); setIsGrading(false); }} className="bg-emerald-500 text-white px-6 py-2 rounded-xl font-medium hover:bg-emerald-600 transition-colors">Lưu kết quả</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
