@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { getAssignments, getSubmissions, getBadges, getPosts } from "../firebase/db";
 import { useAuth } from "../context/AuthContext";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { CheckCircle, Trophy, TrendingUp, AlertCircle, Image as ImageIcon, Paperclip } from "lucide-react";
+import { CheckCircle, Trophy, TrendingUp, AlertCircle, Image as ImageIcon, Paperclip, Volume2 } from "lucide-react";
+import { TTSButton } from "./TTSButton";
 
 export default function ParentDashboard() {
   const { user } = useAuth();
@@ -93,9 +94,12 @@ export default function ParentDashboard() {
                     const a = assignments.find(x => x.id === sub.assignmentId);
                     return (
                       <div key={sub.id} className="flex items-center justify-between p-4 rounded-xl border border-slate-100 bg-slate-50">
-                        <div>
-                          <h4 className="font-bold text-slate-800">{a?.title}</h4>
-                          <p className="text-sm text-slate-500">Nộp lúc: {new Date(sub.submittedAt).toLocaleString('vi-VN')}</p>
+                        <div className="flex items-center gap-3">
+                          <TTSButton text={`${a?.title || ""}. ${a?.description || ""}`} className="bg-white shadow-sm" />
+                          <div>
+                            <h4 className="font-bold text-slate-800">{a?.title}</h4>
+                            <p className="text-sm text-slate-500">Nộp lúc: {new Date(sub.submittedAt).toLocaleString('vi-VN')}</p>
+                          </div>
                         </div>
                         <div className="text-right">
                           {sub.status === "graded" ? (
@@ -144,15 +148,18 @@ export default function ParentDashboard() {
           <h2 className="text-2xl font-bold text-slate-800">Bảng tin lớp học</h2>
           <div className="space-y-6">
             {posts.map(post => (
-              <div key={post.id} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-10 h-10 bg-sky-100 rounded-full flex items-center justify-center text-sky-600 font-bold text-lg">GV</div>
-                  <div>
-                    <h4 className="font-bold text-slate-800">Cô giáo</h4>
-                    <p className="text-xs text-slate-500">{new Date(post.createdAt).toLocaleString('vi-VN')}</p>
-                  </div>
-                </div>
-                <p className="text-slate-700 whitespace-pre-wrap mb-4">{post.content}</p>
+                  <div key={post.id} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                    <div className="flex justify-between items-start mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-sky-100 rounded-full flex items-center justify-center text-sky-600 font-bold text-lg">GV</div>
+                        <div>
+                          <h4 className="font-bold text-slate-800">Cô giáo</h4>
+                          <p className="text-xs text-slate-500">{new Date(post.createdAt).toLocaleString('vi-VN')}</p>
+                        </div>
+                      </div>
+                      <TTSButton text={post.content} className="bg-slate-50" />
+                    </div>
+                    <p className="text-slate-700 whitespace-pre-wrap mb-4">{post.content}</p>
                 
                 {post.files && post.files.length > 0 && (
                   <div className="mb-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
