@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { getAssignments, getSubmissions, createAssignment, gradeSubmission, getStudents, addStudent, updateAssignment, deleteAssignment, resetApp, updateStudent, deleteStudent, undoLastAction, getPosts, createPost, deletePost, updatePost, getAppSettings, updateAppSettings, getTeachers, addTeacher, updateTeacher, deleteTeacher } from "../firebase/db";
+import { getAssignments, getSubmissions, createAssignment, gradeSubmission, getStudents, addStudent, updateAssignment, deleteAssignment, resetApp, updateStudent, deleteStudent, undoLastAction, getPosts, createPost, deletePost, updatePost, getAppSettings, updateAppSettings, getTeachers, addTeacher, updateTeacher, deleteTeacher, updateSubmission } from "../firebase/db";
 import { updateUserPassword, updateUserEmail, logout } from "../firebase/auth";
 import { Plus, FileText, Video, PenTool, CheckCircle, Sparkles, BarChart2, Users, Edit, Trash2, Upload, Download, Undo2, Image as ImageIcon, Paperclip, Settings, X, CheckCircle2, XCircle } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
@@ -282,6 +282,13 @@ export default function TeacherDashboard() {
   const handleGrade = async (subId: string, data: any) => {
     await gradeSubmission(subId, data);
     loadData();
+  };
+
+  const handleApproveRedo = async (subId: string) => {
+    if (window.confirm("Bạn có chắc chắn muốn cho phép học sinh làm lại bài này?")) {
+      await updateSubmission(subId, { status: "redo_approved" });
+      loadData();
+    }
   };
 
   const handleSaveSettings = async (e: React.FormEvent) => {
@@ -759,7 +766,7 @@ export default function TeacherDashboard() {
                 onClick={() => setSubmissionFilter("pending")} 
                 className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${submissionFilter === "pending" ? "bg-white text-sky-600 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
               >
-                Chưa chấm ({submissions.filter(s => s.status === "submitted").length})
+                Chưa chấm ({submissions.filter(s => s.status === "submitted" || s.status === "redo_requested").length})
               </button>
               <button 
                 onClick={() => setSubmissionFilter("graded")} 
@@ -770,14 +777,14 @@ export default function TeacherDashboard() {
             </div>
           </div>
           <div className="grid gap-6">
-            {submissions.filter(s => submissionFilter === "pending" ? s.status === "submitted" : s.status === "graded").map(sub => {
+            {submissions.filter(s => submissionFilter === "pending" ? (s.status === "submitted" || s.status === "redo_requested") : s.status === "graded").map(sub => {
               const student = students.find(st => st.id === sub.studentId);
               const assignment = assignments.find(a => a.id === sub.assignmentId);
               return (
-                <SubmissionCard key={sub.id} sub={sub} assignment={assignment} studentName={student?.name || sub.studentId} onGrade={handleGrade} suggestComment={suggestComment} />
+                <SubmissionCard key={sub.id} sub={sub} assignment={assignment} studentName={student?.name || sub.studentId} onGrade={handleGrade} suggestComment={suggestComment} onApproveRedo={handleApproveRedo} />
               );
             })}
-            {submissions.filter(s => submissionFilter === "pending" ? s.status === "submitted" : s.status === "graded").length === 0 && (
+            {submissions.filter(s => submissionFilter === "pending" ? (s.status === "submitted" || s.status === "redo_requested") : s.status === "graded").length === 0 && (
               <div className="text-center py-12 bg-white rounded-2xl border border-slate-200 border-dashed">
                 {submissionFilter === "pending" ? (
                   <>
@@ -1081,10 +1088,11 @@ export default function TeacherDashboard() {
   );
 }
 
-function SubmissionCard({ sub, assignment, studentName, onGrade, suggestComment }: any) {
+function SubmissionCard({ sub, assignment, studentName, onGrade, suggestComment, onApproveRedo }: any) {
   const [isGrading, setIsGrading] = useState(false);
   const [gradeData, setGradeData] = useState({ level: "Hoàn thành", score: 10, comment: "", stars: 0 });
   const [isSuggesting, setIsSuggesting] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   useEffect(() => {
     if (sub.status === "graded") {
@@ -1108,7 +1116,7 @@ function SubmissionCard({ sub, assignment, studentName, onGrade, suggestComment 
 
   const handleSuggest = async () => {
     setIsSuggesting(true);
-    const suggestion = await suggestComment(sub.content, studentName);
+    const suggestion = await suggestComment(sub.content, studentName, assignment);
     if (suggestion) {
       setGradeData({ ...gradeData, comment: suggestion.comment || "", level: suggestion.level || gradeData.level });
     }
@@ -1123,8 +1131,8 @@ function SubmissionCard({ sub, assignment, studentName, onGrade, suggestComment 
           <p className="text-sm text-slate-500">{assignment?.title}</p>
         </div>
         <div className="flex items-center gap-2">
-          <span className={`text-xs font-medium px-3 py-1 rounded-full ${sub.status === 'graded' ? 'bg-sky-100 text-sky-700' : 'bg-emerald-100 text-emerald-700'}`}>
-            {sub.status === 'graded' ? 'Đã chấm' : 'Đã nộp'}
+          <span className={`text-xs font-medium px-3 py-1 rounded-full ${sub.status === 'graded' ? 'bg-sky-100 text-sky-700' : sub.status === 'redo_requested' ? 'bg-purple-100 text-purple-700' : 'bg-emerald-100 text-emerald-700'}`}>
+            {sub.status === 'graded' ? 'Đã chấm' : sub.status === 'redo_requested' ? 'Xin làm lại' : 'Đã nộp'}
           </span>
         </div>
       </div>
@@ -1141,7 +1149,7 @@ function SubmissionCard({ sub, assignment, studentName, onGrade, suggestComment 
                   {sub.content.attachments.map((att: any, i: number) => (
                     <div key={i} className="rounded-xl overflow-hidden border-2 border-slate-200 bg-white aspect-square flex flex-col">
                       {att.type === 'image' ? (
-                        <img src={att.url} alt={att.name} className="w-full h-full object-cover" />
+                        <img src={att.url} alt={att.name} className="w-full h-full object-cover cursor-pointer hover:opacity-80 transition-opacity" onClick={() => setSelectedImage(att.url)} />
                       ) : (
                         <a href={att.url} target="_blank" rel="noopener noreferrer" className="flex-1 flex flex-col items-center justify-center p-2 text-center hover:bg-slate-50 transition-colors">
                           {att.type === 'link' ? <ImageIcon className="w-8 h-8 text-amber-400 mb-1" /> : <Paperclip className="w-8 h-8 text-emerald-400 mb-1" />}
@@ -1157,7 +1165,7 @@ function SubmissionCard({ sub, assignment, studentName, onGrade, suggestComment 
         )}
         {assignment?.type === "drawing" && (
           <div className="space-y-4">
-            <img src={sub.content?.text || sub.content} alt="Bài vẽ" className="max-w-full h-auto rounded-xl border border-slate-200" />
+            <img src={sub.content?.text || sub.content} alt="Bài vẽ" className="max-w-full h-auto rounded-xl border border-slate-200 cursor-pointer hover:opacity-80 transition-opacity" onClick={() => setSelectedImage(sub.content?.text || sub.content)} />
             {sub.content?.attachments && sub.content.attachments.length > 0 && (
               <div className="mt-4 pt-4 border-t border-slate-200">
                 <p className="text-sm font-bold text-slate-600 mb-2">Tệp đính kèm:</p>
@@ -1165,7 +1173,7 @@ function SubmissionCard({ sub, assignment, studentName, onGrade, suggestComment 
                   {sub.content.attachments.map((att: any, i: number) => (
                     <div key={i} className="rounded-xl overflow-hidden border-2 border-slate-200 bg-white aspect-square flex flex-col">
                       {att.type === 'image' ? (
-                        <img src={att.url} alt={att.name} className="w-full h-full object-cover" />
+                        <img src={att.url} alt={att.name} className="w-full h-full object-cover cursor-pointer hover:opacity-80 transition-opacity" onClick={() => setSelectedImage(att.url)} />
                       ) : (
                         <a href={att.url} target="_blank" rel="noopener noreferrer" className="flex-1 flex flex-col items-center justify-center p-2 text-center hover:bg-slate-50 transition-colors">
                           {att.type === 'link' ? <ImageIcon className="w-8 h-8 text-amber-400 mb-1" /> : <Paperclip className="w-8 h-8 text-emerald-400 mb-1" />}
@@ -1204,7 +1212,7 @@ function SubmissionCard({ sub, assignment, studentName, onGrade, suggestComment 
                   {sub.content.attachments.map((att: any, i: number) => (
                     <div key={i} className="rounded-xl overflow-hidden border-2 border-slate-200 bg-white aspect-square flex flex-col">
                       {att.type === 'image' ? (
-                        <img src={att.url} alt={att.name} className="w-full h-full object-cover" />
+                        <img src={att.url} alt={att.name} className="w-full h-full object-cover cursor-pointer hover:opacity-80 transition-opacity" onClick={() => setSelectedImage(att.url)} />
                       ) : (
                         <a href={att.url} target="_blank" rel="noopener noreferrer" className="flex-1 flex flex-col items-center justify-center p-2 text-center hover:bg-slate-50 transition-colors">
                           {att.type === 'link' ? <ImageIcon className="w-8 h-8 text-amber-400 mb-1" /> : <Paperclip className="w-8 h-8 text-emerald-400 mb-1" />}
@@ -1236,12 +1244,22 @@ function SubmissionCard({ sub, assignment, studentName, onGrade, suggestComment 
               </div>
             </div>
           )}
-          <button 
-            onClick={() => setIsGrading(true)} 
-            className={`${sub.status === 'graded' ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : 'bg-sky-500 text-white hover:bg-sky-600'} px-6 py-2 rounded-xl font-medium transition-colors flex items-center gap-2`}
-          >
-            {sub.status === 'graded' ? <><Edit className="w-4 h-4" /> Chấm lại</> : 'Chấm bài'}
-          </button>
+          <div className="flex gap-2 w-full sm:w-auto">
+            {sub.status === "redo_requested" && (
+              <button 
+                onClick={() => onApproveRedo(sub.id)} 
+                className="flex-1 sm:flex-none bg-purple-100 text-purple-700 hover:bg-purple-200 px-6 py-2 rounded-xl font-medium transition-colors flex items-center justify-center gap-2"
+              >
+                <CheckCircle2 className="w-4 h-4" /> Cho phép làm lại
+              </button>
+            )}
+            <button 
+              onClick={() => setIsGrading(true)} 
+              className={`flex-1 sm:flex-none ${sub.status === 'graded' ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : 'bg-sky-500 text-white hover:bg-sky-600'} px-6 py-2 rounded-xl font-medium transition-colors flex items-center justify-center gap-2`}
+            >
+              {sub.status === 'graded' ? <><Edit className="w-4 h-4" /> Chấm lại</> : 'Chấm bài'}
+            </button>
+          </div>
         </div>
       ) : (
         <div className="space-y-4 border-t border-slate-100 pt-4">
@@ -1278,6 +1296,20 @@ function SubmissionCard({ sub, assignment, studentName, onGrade, suggestComment 
           <div className="flex gap-3">
             <button onClick={() => setIsGrading(false)} className="px-4 py-2 text-slate-600 font-medium">Hủy</button>
             <button onClick={() => { onGrade(sub.id, gradeData); setIsGrading(false); }} className="bg-emerald-500 text-white px-6 py-2 rounded-xl font-medium hover:bg-emerald-600 transition-colors">Lưu kết quả</button>
+          </div>
+        </div>
+      )}
+
+      {selectedImage && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4" onClick={() => setSelectedImage(null)}>
+          <div className="relative max-w-4xl w-full max-h-full flex items-center justify-center">
+            <button 
+              onClick={(e) => { e.stopPropagation(); setSelectedImage(null); }}
+              className="absolute top-4 right-4 bg-white/20 hover:bg-white/40 text-white rounded-full p-2 transition-colors"
+            >
+              <X className="w-6 h-6" />
+            </button>
+            <img src={selectedImage} alt="Phóng to" className="max-w-full max-h-[90vh] object-contain rounded-lg" onClick={e => e.stopPropagation()} />
           </div>
         </div>
       )}
