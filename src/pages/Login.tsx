@@ -150,58 +150,60 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-sky-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-3xl shadow-xl w-full max-w-md overflow-hidden">
-        <div className="bg-sky-500 p-8 text-center text-white">
+    <div className="min-h-screen bg-gray-50 md:bg-sky-50 flex flex-col md:items-center md:justify-center md:p-4">
+      <div className="bg-white md:rounded-3xl md:shadow-xl w-full max-w-md mx-auto overflow-hidden flex-1 flex flex-col md:flex-none md:min-h-0">
+        <div className="bg-sky-500 p-8 pt-12 md:pt-8 text-center text-white rounded-b-[2.5rem] md:rounded-none shadow-lg md:shadow-none relative z-10">
           <BookOpen className="w-16 h-16 mx-auto mb-4" />
           <h1 className="text-3xl font-bold">Lớp Học Đảo Ngược</h1>
           <p className="text-sky-100 mt-2">Học tập thông minh, vui vẻ mỗi ngày!</p>
         </div>
         
-        <div className="p-8">
-          <div className="flex justify-center gap-4 mb-8">
-            <button type="button" onClick={() => setDemoUser("student")} className={`flex flex-col items-center p-3 rounded-xl border-2 transition-all w-24 ${role === "student" ? "border-sky-500 bg-sky-50 text-sky-600 ring-2 ring-sky-200" : "border-gray-100 text-gray-400 hover:border-sky-200"}`}>
-              <User className="w-8 h-8 mb-1" />
-              <span className="text-xs font-bold uppercase">Học sinh</span>
-            </button>
-            <button type="button" onClick={() => setDemoUser("teacher")} className={`flex flex-col items-center p-3 rounded-xl border-2 transition-all w-24 ${role === "teacher" ? "border-amber-500 bg-amber-50 text-amber-600 ring-2 ring-amber-200" : "border-gray-100 text-gray-400 hover:border-amber-200"}`}>
-              <GraduationCap className="w-8 h-8 mb-1" />
-              <span className="text-xs font-bold uppercase">Giáo viên</span>
-            </button>
-            <button type="button" onClick={() => setDemoUser("parent")} className={`flex flex-col items-center p-3 rounded-xl border-2 transition-all w-24 ${role === "parent" ? "border-emerald-500 bg-emerald-50 text-emerald-600 ring-2 ring-emerald-200" : "border-gray-100 text-gray-400 hover:border-emerald-200"}`}>
-              <Users className="w-8 h-8 mb-1" />
-              <span className="text-xs font-bold uppercase">Phụ huynh</span>
-            </button>
-          </div>
-
-          <div className="mb-6 text-center">
-            <p className="text-sm font-medium text-gray-500">
-              Bạn đang đăng nhập với tư cách: <span className={`font-bold ${role === 'teacher' ? 'text-amber-600' : role === 'student' ? 'text-sky-600' : 'text-emerald-600'}`}>
-                {role === 'teacher' ? 'Giáo viên' : role === 'student' ? 'Học sinh' : 'Phụ huynh'}
-              </span>
-            </p>
-          </div>
-
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Tên đăng nhập</label>
-              <input type="text" value={email} onChange={e => setEmail(e.target.value)} onBlur={e => setEmail(e.target.value.toUpperCase())} disabled={isLoading} className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none transition-all disabled:bg-gray-100 disabled:text-gray-400 uppercase" placeholder="VD: HS001 hoặc email..." required />
+        <div className="p-6 md:p-8 flex-1 flex flex-col justify-center -mt-6 md:mt-0 pt-10 md:pt-8 bg-gray-50 md:bg-white">
+          <div className="bg-white md:bg-transparent p-6 md:p-0 rounded-3xl md:rounded-none shadow-sm md:shadow-none border border-gray-100 md:border-none mb-6 md:mb-0">
+            <div className="flex justify-between md:justify-center gap-2 sm:gap-4 mb-8">
+              <button type="button" onClick={() => setDemoUser("student")} className={`flex flex-col items-center p-2 sm:p-3 rounded-2xl border-2 transition-all flex-1 md:w-24 md:flex-none ${role === "student" ? "border-sky-500 bg-sky-50 text-sky-600 ring-4 ring-sky-500/20" : "border-gray-100 text-gray-400 hover:border-sky-200 bg-gray-50 md:bg-white"}`}>
+                <User className="w-7 h-7 sm:w-8 sm:h-8 mb-1.5" />
+                <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider">Học sinh</span>
+              </button>
+              <button type="button" onClick={() => setDemoUser("teacher")} className={`flex flex-col items-center p-2 sm:p-3 rounded-2xl border-2 transition-all flex-1 md:w-24 md:flex-none ${role === "teacher" ? "border-amber-500 bg-amber-50 text-amber-600 ring-4 ring-amber-500/20" : "border-gray-100 text-gray-400 hover:border-amber-200 bg-gray-50 md:bg-white"}`}>
+                <GraduationCap className="w-7 h-7 sm:w-8 sm:h-8 mb-1.5" />
+                <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider">Giáo viên</span>
+              </button>
+              <button type="button" onClick={() => setDemoUser("parent")} className={`flex flex-col items-center p-2 sm:p-3 rounded-2xl border-2 transition-all flex-1 md:w-24 md:flex-none ${role === "parent" ? "border-emerald-500 bg-emerald-50 text-emerald-600 ring-4 ring-emerald-500/20" : "border-gray-100 text-gray-400 hover:border-emerald-200 bg-gray-50 md:bg-white"}`}>
+                <Users className="w-7 h-7 sm:w-8 sm:h-8 mb-1.5" />
+                <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider">Phụ huynh</span>
+              </button>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Mật khẩu</label>
-              <input type="password" value={password} onChange={e => setPassword(e.target.value)} disabled={isLoading} className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none transition-all disabled:bg-gray-100 disabled:text-gray-400" placeholder="Nhập mật khẩu..." required />
+
+            <div className="mb-6 text-center">
+              <p className="text-sm font-medium text-gray-500">
+                Đăng nhập với tư cách: <span className={`font-bold ${role === 'teacher' ? 'text-amber-600' : role === 'student' ? 'text-sky-600' : 'text-emerald-600'}`}>
+                  {role === 'teacher' ? 'Giáo viên' : role === 'student' ? 'Học sinh' : 'Phụ huynh'}
+                </span>
+              </p>
             </div>
-            <button type="submit" disabled={isLoading} className="w-full bg-sky-500 hover:bg-sky-600 text-white font-bold py-3 px-4 rounded-xl transition-colors shadow-md hover:shadow-lg mt-4 flex justify-center items-center gap-2 disabled:bg-sky-300 disabled:cursor-not-allowed">
-              {isLoading ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  Đang xử lý...
-                </>
-              ) : (
-                "Đăng nhập"
-              )}
-            </button>
-          </form>
+
+            <form onSubmit={handleLogin} className="space-y-5">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5 ml-1">Tên đăng nhập</label>
+                <input type="text" value={email} onChange={e => setEmail(e.target.value)} onBlur={e => setEmail(e.target.value.toUpperCase())} disabled={isLoading} className="w-full px-4 py-3.5 rounded-2xl border-2 border-gray-100 focus:ring-0 focus:border-sky-500 outline-none transition-all disabled:bg-gray-100 disabled:text-gray-400 uppercase bg-gray-50 md:bg-white text-base" placeholder="VD: HS001 hoặc email..." required />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5 ml-1">Mật khẩu</label>
+                <input type="password" value={password} onChange={e => setPassword(e.target.value)} disabled={isLoading} className="w-full px-4 py-3.5 rounded-2xl border-2 border-gray-100 focus:ring-0 focus:border-sky-500 outline-none transition-all disabled:bg-gray-100 disabled:text-gray-400 bg-gray-50 md:bg-white text-base" placeholder="Nhập mật khẩu..." required />
+              </div>
+              <button type="submit" disabled={isLoading} className="w-full bg-sky-500 hover:bg-sky-600 active:bg-sky-700 text-white font-bold py-4 px-4 rounded-2xl transition-all shadow-lg shadow-sky-500/30 mt-6 flex justify-center items-center gap-2 disabled:bg-sky-300 disabled:shadow-none disabled:cursor-not-allowed text-lg">
+                {isLoading ? (
+                  <>
+                    <Loader2 className="w-6 h-6 animate-spin" />
+                    Đang xử lý...
+                  </>
+                ) : (
+                  "Đăng nhập"
+                )}
+              </button>
+            </form>
+          </div>
         </div>
       </div>
     </div>
