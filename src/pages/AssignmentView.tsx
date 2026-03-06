@@ -2,43 +2,10 @@ import React, { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { getAssignment, submitAssignment } from "../firebase/db";
 import { useAuth } from "../context/AuthContext";
-import { ArrowLeft, CheckCircle, Volume2, Image as ImageIcon, X, Clock, PenTool } from "lucide-react";
+import { ArrowLeft, CheckCircle, Image as ImageIcon, X, Clock, PenTool } from "lucide-react";
 import DrawingCanvas from "../components/DrawingCanvas";
 import InteractiveVideo from "../components/InteractiveVideo";
 import AttachmentManager, { Attachment } from "../components/AttachmentManager";
-
-export const speak = (text: string) => {
-  if ('speechSynthesis' in window) {
-    window.speechSynthesis.cancel(); // Cancel any ongoing speech
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'vi-VN';
-    
-    // Try to find a Vietnamese voice, preferably a Southern one if available
-    const voices = window.speechSynthesis.getVoices();
-    const viVoices = voices.filter(v => v.lang.includes('vi'));
-    // Some systems might have specific names for Southern voices, but we'll just pick the first vi-VN voice
-    // as browser support for specific regional accents is limited and depends on the OS.
-    if (viVoices.length > 0) {
-      utterance.voice = viVoices[0];
-    }
-    
-    window.speechSynthesis.speak(utterance);
-  } else {
-    alert("Trình duyệt của bạn không hỗ trợ đọc văn bản.");
-  }
-};
-
-export function TTSButton({ text, className = "" }: { text: string, className?: string }) {
-  return (
-    <button 
-      onClick={(e) => { e.preventDefault(); e.stopPropagation(); speak(text); }}
-      className={`p-2 text-sky-500 hover:bg-sky-100 rounded-full transition-colors ${className}`}
-      title="Đọc câu hỏi"
-    >
-      <Volume2 className="w-5 h-5" />
-    </button>
-  );
-}
 
 export default function AssignmentView() {
   const { id } = useParams();
@@ -53,11 +20,6 @@ export default function AssignmentView() {
   useEffect(() => {
     if (id) {
       getAssignment(id).then(setAssignment);
-    }
-    
-    // Load voices early
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.getVoices();
     }
   }, [id]);
 
@@ -107,16 +69,12 @@ export default function AssignmentView() {
             </span>
             <h2 className="text-4xl sm:text-5xl font-black text-slate-800 mb-4 flex items-center gap-4 leading-tight">
               {assignment.title}
-              <TTSButton text={assignment.title} className="scale-125 ml-2" />
             </h2>
             <p className="text-slate-500 font-bold text-lg mb-6 flex items-center gap-2">
               <Clock className="w-5 h-5 text-rose-500" /> Hạn nộp: {assignment.dueDate}
             </p>
             {assignment.description && (
               <div className="bg-sky-50 p-6 sm:p-8 rounded-[2rem] border-4 border-sky-100 mb-8 relative">
-                <div className="absolute top-6 right-6">
-                  <TTSButton text={assignment.description} className="bg-white shadow-sm" />
-                </div>
                 <p className="text-slate-700 whitespace-pre-wrap text-xl leading-relaxed pr-12 font-medium">{assignment.description}</p>
               </div>
             )}
@@ -207,9 +165,6 @@ function Quiz({ questions, onComplete }: any) {
         <div key={i} className="bg-white p-8 rounded-[2.5rem] border-4 border-slate-100 shadow-sm relative overflow-hidden">
           <div className="absolute top-0 left-0 w-16 h-16 bg-sky-100 rounded-br-[2rem] flex items-center justify-center text-sky-600 font-black text-2xl">
             {i + 1}
-          </div>
-          <div className="absolute top-6 right-6">
-            <TTSButton text={q.q} className="bg-slate-50 border-2 border-slate-100" />
           </div>
           <h3 className="text-2xl font-black text-slate-800 mb-6 mt-12 pr-12 leading-relaxed">{q.q}</h3>
           {q.imageUrl && (
