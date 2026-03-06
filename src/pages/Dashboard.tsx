@@ -29,21 +29,21 @@ export default function Dashboard() {
     <div className="min-h-screen bg-slate-50">
       <header className="bg-white shadow-sm sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 min-w-0">
             {appSettings.avatarUrl ? (
-              <img src={appSettings.avatarUrl} alt="Logo" className="w-10 h-10 rounded-xl object-cover shadow-sm" />
+              <img src={appSettings.avatarUrl} alt="Logo" className="w-10 h-10 rounded-xl object-cover shadow-sm shrink-0" />
             ) : (
-              <div className="w-10 h-10 bg-sky-500 rounded-xl flex items-center justify-center text-white font-bold text-xl shadow-sm">
+              <div className="w-10 h-10 bg-sky-500 rounded-xl flex items-center justify-center text-white font-bold text-xl shadow-sm shrink-0">
                 LH
               </div>
             )}
-            <div>
-              <h1 className="text-xl font-bold text-slate-800">{appSettings.appName || "Lớp Học Đảo Ngược"}</h1>
+            <div className="min-w-0">
+              <h1 className="text-xl font-bold text-slate-800 truncate">{appSettings.appName || "Lớp Học Đảo Ngược"}</h1>
               <div className="flex items-center gap-2">
-                <p className="text-xs text-slate-500 font-medium">
+                <p className="text-xs text-slate-500 font-medium truncate">
                   Xin chào, {user?.role === "teacher" ? (appSettings.teacherName || user?.name || user?.email) : (user?.name || user?.email)}
                 </p>
-                <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold uppercase ${
+                <span className={`shrink-0 text-[10px] px-1.5 py-0.5 rounded-full font-bold uppercase ${
                   user?.role === 'teacher' ? 'bg-amber-100 text-amber-600' : 
                   user?.role === 'student' ? 'bg-sky-100 text-sky-600' : 
                   'bg-slate-100 text-slate-600'
@@ -53,7 +53,7 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4 shrink-0 ml-2">
             {user?.avatarUrl && (
               <img src={user.avatarUrl} alt={user.name} className="w-8 h-8 rounded-full object-cover shadow-sm border border-slate-200" />
             )}
