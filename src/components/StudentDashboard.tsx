@@ -2,8 +2,7 @@ import { useState, useEffect } from "react";
 import { getAssignments, getSubmissions, getBadges, updateStudent, addBadge } from "../firebase/db";
 import { useAuth } from "../context/AuthContext";
 import { Link } from "react-router-dom";
-import { PlayCircle, CheckCircle, Star, Trophy, Clock, FileText, PenTool, Video, ArrowLeft, Gift, X, Volume2 } from "lucide-react";
-import { TTSButton } from "./TTSButton";
+import { PlayCircle, CheckCircle, Star, Trophy, Clock, FileText, PenTool, Video, ArrowLeft, Gift, X } from "lucide-react";
 import confetti from "canvas-confetti";
 
 export default function StudentDashboard() {
@@ -165,7 +164,6 @@ export default function StudentDashboard() {
                       <span className="flex items-center gap-1 text-sm font-bold text-rose-600 bg-rose-100 px-3 py-1.5 rounded-xl border-2 border-rose-200">
                         <Clock className="w-4 h-4" /> {a.dueDate}
                       </span>
-                      <TTSButton text={`${a.title}. ${a.description || ""}`} className="bg-white shadow-sm border border-slate-100" />
                     </div>
                   </div>
                   <h4 className="font-black text-xl text-slate-800 mb-2 group-hover:text-sky-600 transition-colors">{a.title}</h4>
