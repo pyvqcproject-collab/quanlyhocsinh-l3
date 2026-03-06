@@ -21,11 +21,19 @@ async function startServer() {
       }
       const ai = new GoogleGenAI({ apiKey: apiKey.trim() });
 
-      const { content, studentName } = req.body;
+      const { content, studentName, assignment } = req.body;
+
+      const assignmentContext = assignment ? `
+        Thông tin bài tập:
+        - Tiêu đề: ${assignment.title}
+        - Yêu cầu: ${assignment.description}
+        - Loại bài tập: ${assignment.type}
+      ` : "";
 
       const response = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
         contents: `Đóng vai một giáo viên tiểu học. Hãy nhận xét bài làm sau của học sinh lớp 3 tên là ${studentName || "Học sinh"}.
+        ${assignmentContext}
         Bài làm: "${typeof content === 'object' ? JSON.stringify(content) : content}"
         Tiêu chí: Nội dung, mức độ hoàn thành.
         Hãy đưa ra lời nhận xét mang tính khích lệ, phù hợp với tâm lý trẻ em lớp 3.
