@@ -386,32 +386,74 @@ export default function TeacherDashboard() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex gap-4 border-b border-slate-200 pb-2 overflow-x-auto justify-between items-center">
+    <div className="space-y-6 pb-24 md:pb-0">
+      {/* Desktop Tabs */}
+      <div className="hidden md:flex gap-4 border-b border-slate-200 pb-2 overflow-x-auto justify-between items-center">
         <div className="flex gap-4">
-          <button onClick={() => setActiveTab("students")} className={`px-4 py-2 font-medium rounded-t-lg ${activeTab === "students" ? "text-sky-600 border-b-2 border-sky-600" : "text-slate-500"}`}>Học sinh</button>
-          {user?.isAdmin && <button onClick={() => setActiveTab("teachers")} className={`px-4 py-2 font-medium rounded-t-lg ${activeTab === "teachers" ? "text-sky-600 border-b-2 border-sky-600" : "text-slate-500"}`}>Giáo viên</button>}
-          <button onClick={() => setActiveTab("assignments")} className={`px-4 py-2 font-medium rounded-t-lg ${activeTab === "assignments" ? "text-sky-600 border-b-2 border-sky-600" : "text-slate-500"}`}>Bài tập</button>
-          <button onClick={() => setActiveTab("submissions")} className={`px-4 py-2 font-medium rounded-t-lg ${activeTab === "submissions" ? "text-sky-600 border-b-2 border-sky-600" : "text-slate-500"}`}>Chấm bài</button>
-          <button onClick={() => setActiveTab("analytics")} className={`px-4 py-2 font-medium rounded-t-lg ${activeTab === "analytics" ? "text-sky-600 border-b-2 border-sky-600" : "text-slate-500"}`}>Thống kê</button>
-          <button onClick={() => setActiveTab("posts")} className={`px-4 py-2 font-medium rounded-t-lg ${activeTab === "posts" ? "text-sky-600 border-b-2 border-sky-600" : "text-slate-500"}`}>Bảng tin</button>
-          <button onClick={() => setActiveTab("settings")} className={`px-4 py-2 font-medium rounded-t-lg ${activeTab === "settings" ? "text-sky-600 border-b-2 border-sky-600" : "text-slate-500"}`}>Cài đặt</button>
+          <button onClick={() => setActiveTab("students")} className={`px-4 py-2 font-medium rounded-t-lg ${activeTab === "students" ? "text-sky-600 border-b-2 border-sky-600" : "text-slate-500 hover:text-slate-700"}`}>Học sinh</button>
+          {user?.isAdmin && <button onClick={() => setActiveTab("teachers")} className={`px-4 py-2 font-medium rounded-t-lg ${activeTab === "teachers" ? "text-sky-600 border-b-2 border-sky-600" : "text-slate-500 hover:text-slate-700"}`}>Giáo viên</button>}
+          <button onClick={() => setActiveTab("assignments")} className={`px-4 py-2 font-medium rounded-t-lg ${activeTab === "assignments" ? "text-sky-600 border-b-2 border-sky-600" : "text-slate-500 hover:text-slate-700"}`}>Bài tập</button>
+          <button onClick={() => setActiveTab("submissions")} className={`px-4 py-2 font-medium rounded-t-lg ${activeTab === "submissions" ? "text-sky-600 border-b-2 border-sky-600" : "text-slate-500 hover:text-slate-700"}`}>Chấm bài</button>
+          <button onClick={() => setActiveTab("analytics")} className={`px-4 py-2 font-medium rounded-t-lg ${activeTab === "analytics" ? "text-sky-600 border-b-2 border-sky-600" : "text-slate-500 hover:text-slate-700"}`}>Thống kê</button>
+          <button onClick={() => setActiveTab("posts")} className={`px-4 py-2 font-medium rounded-t-lg ${activeTab === "posts" ? "text-sky-600 border-b-2 border-sky-600" : "text-slate-500 hover:text-slate-700"}`}>Bảng tin</button>
+          <button onClick={() => setActiveTab("settings")} className={`px-4 py-2 font-medium rounded-t-lg ${activeTab === "settings" ? "text-sky-600 border-b-2 border-sky-600" : "text-slate-500 hover:text-slate-700"}`}>Cài đặt</button>
         </div>
         <button onClick={handleUndo} className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors">
           <Undo2 className="w-4 h-4" /> Hoàn tác
         </button>
       </div>
 
+      {/* Mobile Bottom Navigation */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-50 px-2 py-2 flex justify-around items-center overflow-x-auto">
+        <button onClick={() => setActiveTab("students")} className={`flex flex-col items-center min-w-[64px] p-2 rounded-xl transition-colors ${activeTab === "students" ? "text-sky-600 bg-sky-50" : "text-slate-500 hover:bg-slate-50"}`}>
+          <Users className="w-6 h-6 mb-1" />
+          <span className="text-[10px] font-medium">Học sinh</span>
+        </button>
+        {user?.isAdmin && (
+          <button onClick={() => setActiveTab("teachers")} className={`flex flex-col items-center min-w-[64px] p-2 rounded-xl transition-colors ${activeTab === "teachers" ? "text-sky-600 bg-sky-50" : "text-slate-500 hover:bg-slate-50"}`}>
+            <Users className="w-6 h-6 mb-1" />
+            <span className="text-[10px] font-medium">Giáo viên</span>
+          </button>
+        )}
+        <button onClick={() => setActiveTab("assignments")} className={`flex flex-col items-center min-w-[64px] p-2 rounded-xl transition-colors ${activeTab === "assignments" ? "text-sky-600 bg-sky-50" : "text-slate-500 hover:bg-slate-50"}`}>
+          <FileText className="w-6 h-6 mb-1" />
+          <span className="text-[10px] font-medium">Bài tập</span>
+        </button>
+        <button onClick={() => setActiveTab("submissions")} className={`flex flex-col items-center min-w-[64px] p-2 rounded-xl transition-colors ${activeTab === "submissions" ? "text-sky-600 bg-sky-50" : "text-slate-500 hover:bg-slate-50"}`}>
+          <CheckCircle className="w-6 h-6 mb-1" />
+          <span className="text-[10px] font-medium">Chấm bài</span>
+        </button>
+        <button onClick={() => setActiveTab("analytics")} className={`flex flex-col items-center min-w-[64px] p-2 rounded-xl transition-colors ${activeTab === "analytics" ? "text-sky-600 bg-sky-50" : "text-slate-500 hover:bg-slate-50"}`}>
+          <BarChart2 className="w-6 h-6 mb-1" />
+          <span className="text-[10px] font-medium">Thống kê</span>
+        </button>
+        <button onClick={() => setActiveTab("posts")} className={`flex flex-col items-center min-w-[64px] p-2 rounded-xl transition-colors ${activeTab === "posts" ? "text-sky-600 bg-sky-50" : "text-slate-500 hover:bg-slate-50"}`}>
+          <PenTool className="w-6 h-6 mb-1" />
+          <span className="text-[10px] font-medium">Bảng tin</span>
+        </button>
+        <button onClick={() => setActiveTab("settings")} className={`flex flex-col items-center min-w-[64px] p-2 rounded-xl transition-colors ${activeTab === "settings" ? "text-sky-600 bg-sky-50" : "text-slate-500 hover:bg-slate-50"}`}>
+          <Settings className="w-6 h-6 mb-1" />
+          <span className="text-[10px] font-medium">Cài đặt</span>
+        </button>
+      </div>
+
+      {/* Mobile Header Actions (Undo) */}
+      <div className="md:hidden flex justify-end mb-4">
+        <button onClick={handleUndo} className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 bg-white border border-slate-200 shadow-sm hover:bg-slate-50 rounded-xl transition-colors">
+          <Undo2 className="w-4 h-4" /> Hoàn tác
+        </button>
+      </div>
+
       {activeTab === "students" && (
         <div className="space-y-6">
-          <div className="flex justify-between items-center">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <h2 className="text-2xl font-bold text-slate-800">Danh sách học sinh</h2>
-            <div className="flex gap-3">
-              <input type="text" placeholder="Tìm kiếm..." value={studentSearchTerm} onChange={(e) => setStudentSearchTerm(e.target.value)} className="px-4 py-2 rounded-xl border border-slate-200 outline-none" />
-              <button onClick={exportResults} className="bg-indigo-500 text-white px-4 py-2 rounded-xl font-medium flex items-center gap-2 transition-colors"><Download className="w-5 h-5" /> Xuất Excel</button>
-              <button onClick={downloadStudentTemplate} className="bg-slate-100 text-slate-600 hover:bg-slate-200 px-4 py-2 rounded-xl font-medium flex items-center gap-2 transition-colors"><Download className="w-5 h-5" /> Tải mẫu</button>
-              <label className="bg-emerald-500 text-white px-4 py-2 rounded-xl font-medium flex items-center gap-2 transition-colors cursor-pointer"><Upload className="w-5 h-5" /> Nhập Excel<input type="file" className="hidden" onChange={handleFileUpload} /></label>
-              <button onClick={() => setIsAddingStudent(true)} className="bg-sky-500 text-white px-4 py-2 rounded-xl font-medium flex items-center gap-2 transition-colors"><Plus className="w-5 h-5" /> Thêm</button>
+            <div className="flex flex-wrap gap-2 md:gap-3 w-full md:w-auto">
+              <input type="text" placeholder="Tìm kiếm..." value={studentSearchTerm} onChange={(e) => setStudentSearchTerm(e.target.value)} className="w-full md:w-auto px-4 py-2 rounded-xl border border-slate-200 outline-none" />
+              <button onClick={exportResults} className="flex-1 md:flex-none justify-center bg-indigo-500 text-white px-4 py-2 rounded-xl font-medium flex items-center gap-2 transition-colors"><Download className="w-5 h-5" /> <span className="hidden sm:inline">Xuất Excel</span></button>
+              <button onClick={downloadStudentTemplate} className="flex-1 md:flex-none justify-center bg-slate-100 text-slate-600 hover:bg-slate-200 px-4 py-2 rounded-xl font-medium flex items-center gap-2 transition-colors"><Download className="w-5 h-5" /> <span className="hidden sm:inline">Tải mẫu</span></button>
+              <label className="flex-1 md:flex-none justify-center bg-emerald-500 text-white px-4 py-2 rounded-xl font-medium flex items-center gap-2 transition-colors cursor-pointer"><Upload className="w-5 h-5" /> <span className="hidden sm:inline">Nhập Excel</span><input type="file" className="hidden" onChange={handleFileUpload} /></label>
+              <button onClick={() => setIsAddingStudent(true)} className="flex-1 md:flex-none justify-center bg-sky-500 text-white px-4 py-2 rounded-xl font-medium flex items-center gap-2 transition-colors"><Plus className="w-5 h-5" /> <span className="hidden sm:inline">Thêm</span></button>
             </div>
           </div>
 
@@ -436,8 +478,8 @@ export default function TeacherDashboard() {
             </div>
           )}
 
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-            <table className="w-full text-left">
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-x-auto">
+            <table className="w-full text-left min-w-[800px]">
               <thead className="bg-slate-50 border-b border-slate-100">
                 <tr>
                   <th className="p-4 font-semibold text-slate-600">Mã số</th>
@@ -542,8 +584,8 @@ export default function TeacherDashboard() {
             </div>
           )}
 
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-            <table className="w-full text-left">
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-x-auto">
+            <table className="w-full text-left min-w-[600px]">
               <thead className="bg-slate-50 border-b border-slate-100">
                 <tr>
                   <th className="p-4 font-semibold text-slate-600">Tên đăng nhập</th>
@@ -828,14 +870,14 @@ export default function TeacherDashboard() {
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
               <form onSubmit={handleCreatePost} className="space-y-4">
                 <textarea value={newPost.content} onChange={e => setNewPost({...newPost, content: e.target.value})} className="w-full px-4 py-2 rounded-xl border border-slate-200 outline-none min-h-[100px]" placeholder="Nội dung thông báo..." required></textarea>
-                <div className="flex justify-between items-center">
-                  <label className="bg-slate-100 text-slate-700 px-4 py-2 rounded-xl font-medium cursor-pointer flex items-center gap-2">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                  <label className="bg-slate-100 text-slate-700 px-4 py-2 rounded-xl font-medium cursor-pointer flex items-center gap-2 w-full sm:w-auto justify-center">
                     <Paperclip className="w-5 h-5" /> Đính kèm file
                     <input type="file" multiple className="hidden" onChange={handleFileUploadPost} />
                   </label>
-                  <div className="flex gap-3">
-                    <button type="button" onClick={() => { setIsCreatingPost(false); setEditingPost(null); }} className="px-4 py-2 text-slate-600">Hủy</button>
-                    <button type="submit" className="bg-sky-500 text-white px-6 py-2 rounded-xl">Đăng</button>
+                  <div className="flex gap-3 w-full sm:w-auto">
+                    <button type="button" onClick={() => { setIsCreatingPost(false); setEditingPost(null); }} className="flex-1 sm:flex-none px-4 py-2 text-slate-600 bg-slate-100 sm:bg-transparent rounded-xl sm:rounded-none">Hủy</button>
+                    <button type="submit" className="flex-1 sm:flex-none bg-sky-500 text-white px-6 py-2 rounded-xl">Đăng</button>
                   </div>
                 </div>
                 {newPost.files.length > 0 && (
