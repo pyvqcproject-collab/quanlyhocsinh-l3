@@ -2,8 +2,7 @@ import { useState, useEffect } from "react";
 import { getAssignments, getSubmissions, getBadges, getPosts } from "../firebase/db";
 import { useAuth } from "../context/AuthContext";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { CheckCircle, Trophy, TrendingUp, AlertCircle, Image as ImageIcon, Paperclip, Volume2 } from "lucide-react";
-import { TTSButton } from "./TTSButton";
+import { CheckCircle, Trophy, TrendingUp, AlertCircle, Image as ImageIcon, Paperclip } from "lucide-react";
 
 export default function ParentDashboard() {
   const { user } = useAuth();
@@ -95,7 +94,6 @@ export default function ParentDashboard() {
                     return (
                       <div key={sub.id} className="flex items-center justify-between p-4 rounded-xl border border-slate-100 bg-slate-50">
                         <div className="flex items-center gap-3">
-                          <TTSButton text={`${a?.title || ""}. ${a?.description || ""}`} className="bg-white shadow-sm" />
                           <div>
                             <h4 className="font-bold text-slate-800">{a?.title}</h4>
                             <p className="text-sm text-slate-500">Nộp lúc: {new Date(sub.submittedAt).toLocaleString('vi-VN')}</p>
@@ -157,7 +155,6 @@ export default function ParentDashboard() {
                           <p className="text-xs text-slate-500">{new Date(post.createdAt).toLocaleString('vi-VN')}</p>
                         </div>
                       </div>
-                      <TTSButton text={post.content} className="bg-slate-50" />
                     </div>
                     <p className="text-slate-700 whitespace-pre-wrap mb-4">{post.content}</p>
                 
