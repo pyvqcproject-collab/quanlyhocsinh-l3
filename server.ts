@@ -107,42 +107,6 @@ async function startServer() {
     }
   });
 
-  // API Route: AI TTS
-  app.post("/api/ai/tts", async (req, res) => {
-    try {
-      const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
-      if (!apiKey || apiKey === "MY_GEMINI_API_KEY") {
-        return res.status(500).json({ error: "Gemini API key is missing or invalid." });
-      }
-      const ai = new GoogleGenAI({ apiKey: apiKey.trim() });
-      const { text } = req.body;
-
-      const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash-preview-tts",
-        contents: [{ parts: [{ text: `Hãy đọc đoạn văn bản sau bằng giọng người Việt Nam bản xứ, phát âm chuẩn, rõ ràng, có cảm xúc: ${text}` }] }],
-        config: {
-          systemInstruction: "Bạn là một người Việt Nam bản xứ, nói tiếng Việt chuẩn (giọng Hà Nội hoặc Sài Gòn tự nhiên). Hãy đọc văn bản được cung cấp một cách truyền cảm, đúng trọng âm, đúng ngữ điệu của người Việt. Tuyệt đối không được có âm hưởng hay giọng lơ lớ của người nước ngoài. Chỉ trả về dữ liệu âm thanh.",
-          responseModalities: [Modality.AUDIO],
-          speechConfig: {
-            voiceConfig: {
-              prebuiltVoiceConfig: { voiceName: 'Puck' },
-            },
-          },
-        },
-      });
-
-      const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-      if (base64Audio) {
-        res.json({ audioData: `data:audio/mp3;base64,${base64Audio}` });
-      } else {
-        res.status(500).json({ error: "Không thể tạo âm thanh." });
-      }
-    } catch (error: any) {
-      console.error("TTS Error:", error);
-      res.status(500).json({ error: error.message });
-    }
-  });
-
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
