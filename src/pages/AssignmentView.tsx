@@ -3,7 +3,6 @@ import { useParams, useNavigate } from "react-router-dom";
 import { getAssignment, submitAssignment } from "../firebase/db";
 import { useAuth } from "../context/AuthContext";
 import { ArrowLeft, CheckCircle, Image as ImageIcon, X, Clock, PenTool } from "lucide-react";
-import DrawingCanvas from "../components/DrawingCanvas";
 import InteractiveVideo from "../components/InteractiveVideo";
 import AttachmentManager, { Attachment } from "../components/AttachmentManager";
 
@@ -64,8 +63,8 @@ export default function AssignmentView() {
           <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-sky-100 to-transparent rounded-bl-full -z-10"></div>
           
           <div className="mb-10">
-            <span className={`inline-block px-4 py-2 rounded-xl text-sm font-black uppercase tracking-wider mb-6 border-2 ${assignment.type === 'essay' ? 'bg-amber-100 text-amber-700 border-amber-200' : assignment.type === 'video' ? 'bg-rose-100 text-rose-700 border-rose-200' : assignment.type === 'drawing' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : 'bg-sky-100 text-sky-700 border-sky-200'}`}>
-              {assignment.type === 'essay' ? 'Tự luận' : assignment.type === 'video' ? 'Video' : assignment.type === 'drawing' ? 'Vẽ tranh' : 'Trắc nghiệm'}
+            <span className={`inline-block px-4 py-2 rounded-xl text-sm font-black uppercase tracking-wider mb-6 border-2 ${assignment.type === 'essay' ? 'bg-amber-100 text-amber-700 border-amber-200' : assignment.type === 'video' ? 'bg-rose-100 text-rose-700 border-rose-200' : 'bg-sky-100 text-sky-700 border-sky-200'}`}>
+              {assignment.type === 'essay' ? 'Tự luận' : assignment.type === 'video' ? 'Video' : 'Trắc nghiệm'}
             </span>
             <h2 className="text-4xl sm:text-5xl font-black text-slate-800 mb-4 flex items-center gap-4 leading-tight">
               {assignment.title}
@@ -104,14 +103,6 @@ export default function AssignmentView() {
               >
                 <CheckCircle className="w-8 h-8" /> Nộp bài ngay!
               </button>
-            </div>
-          )}
-
-          {assignment.type === "drawing" && (
-            <div className="space-y-6">
-              <DrawingCanvas onSubmit={handleSubmit} submitting={submitting}>
-                <AttachmentManager attachments={attachments} onChange={setAttachments} />
-              </DrawingCanvas>
             </div>
           )}
 
