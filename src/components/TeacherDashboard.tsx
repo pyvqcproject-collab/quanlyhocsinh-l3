@@ -280,8 +280,13 @@ export default function TeacherDashboard() {
   };
 
   const handleGrade = async (subId: string, data: any) => {
-    await gradeSubmission(subId, data);
-    loadData();
+    try {
+      await gradeSubmission(subId, data);
+      await loadData();
+    } catch (error) {
+      console.error("Error grading submission:", error);
+      alert("Có lỗi xảy ra khi chấm bài. Vui lòng thử lại.");
+    }
   };
 
   const handleApproveRedo = async (subId: string) => {
@@ -1086,6 +1091,7 @@ export default function TeacherDashboard() {
 
 function SubmissionCard({ sub, assignment, studentName, onGrade, suggestComment, onApproveRedo }: any) {
   const [isGrading, setIsGrading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [gradeData, setGradeData] = useState({ level: "Hoàn thành", score: 10, comment: "", stars: 0 });
   const [isSuggesting, setIsSuggesting] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -1101,7 +1107,7 @@ function SubmissionCard({ sub, assignment, studentName, onGrade, suggestComment,
     } else if (assignment?.type === "quiz" || assignment?.type === "video") {
       let correctCount = 0;
       assignment.questions?.forEach((q: any, i: number) => {
-        const studentAnswer = sub.content?.text ? sub.content.text[i] : sub.content[i];
+        const studentAnswer = sub.content?.text ? sub.content.text[i] : (sub.content ? sub.content[i] : null);
         if (studentAnswer === q.answer) correctCount++;
       });
       setGradeData(prev => ({ ...prev, stars: correctCount, score: correctCount }));
@@ -1137,7 +1143,7 @@ function SubmissionCard({ sub, assignment, studentName, onGrade, suggestComment,
         <p className="text-sm font-medium text-slate-500 mb-2">Bài làm:</p>
         {assignment?.type === "essay" && (
           <div className="space-y-4">
-            <p className="text-slate-700 whitespace-pre-wrap">{sub.content?.text || sub.content}</p>
+            <p className="text-slate-700 whitespace-pre-wrap">{typeof sub.content === 'string' ? sub.content : (sub.content?.text || '')}</p>
             {sub.content?.attachments && sub.content.attachments.length > 0 && (
               <div className="mt-4 pt-4 border-t border-slate-200">
                 <p className="text-sm font-bold text-slate-600 mb-2">Tệp đính kèm:</p>
@@ -1163,7 +1169,7 @@ function SubmissionCard({ sub, assignment, studentName, onGrade, suggestComment,
           <div className="space-y-4">
             <div className="space-y-3">
               {assignment.questions?.map((q: any, i: number) => {
-                const studentAnswer = sub.content?.text ? sub.content.text[i] : sub.content[i];
+                const studentAnswer = sub.content?.text ? sub.content.text[i] : (sub.content ? sub.content[i] : null);
                 const isCorrect = studentAnswer === q.answer;
                 return (
                   <div key={i} className={`p-3 rounded-xl border ${isCorrect ? 'bg-emerald-50 border-emerald-200' : 'bg-rose-50 border-rose-200'}`}>
