@@ -128,6 +128,18 @@ export const gradeSubmission = async (submissionId: string, data: any) => {
     }
     return sub;
   }
+export const gradeSubmission = async (submissionId: string, data: any) => {
+  if (isMockMode) {
+    const sub = mockData.submissions.find(s => s.id === submissionId);
+    if (sub) {
+      Object.assign(sub, { ...(data || {}), status: "graded" });
+      saveMockData();
+    }
+    return sub;
+  }
+  await updateDoc(doc(db, "submissions", submissionId), { ...(data || {}), status: "graded" });
+};
+
 export const updateSubmission = async (submissionId: string, data: any) => {
   if (isMockMode) {
     const sub = mockData.submissions.find(s => s.id === submissionId);
@@ -138,7 +150,7 @@ export const updateSubmission = async (submissionId: string, data: any) => {
     return sub;
   }
   await updateDoc(doc(db, "submissions", submissionId), data);
-};  
+};
   await updateDoc(doc(db, "submissions", submissionId), { ...(data || {}), status: "graded" });
 };
 
