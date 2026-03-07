@@ -110,11 +110,26 @@ export const getSubmissions = async (assignmentId?: string, studentId?: string) 
 
 export const submitAssignment = async (data: any) => {
   if (isMockMode) {
+    const existingSub = mockData.submissions.find(s => s.assignmentId === data.assignmentId && s.studentId === data.studentId);
+    if (existingSub) {
+      Object.assign(existingSub, { ...data, status: "submitted", submittedAt: new Date().toISOString() });
+      saveMockData();
+      return existingSub;
+    }
     const newSub = { id: generateId(), ...data, status: "submitted", submittedAt: new Date().toISOString() };
     mockData.submissions.push(newSub);
     saveMockData();
     return newSub;
   }
+  
+  const q = query(collection(db, "submissions"), where("assignmentId", "==", data.assignmentId), where("studentId", "==", data.studentId));
+  const snapshot = await getDocs(q);
+  if (!snapshot.empty) {
+    const docRef = snapshot.docs[0].ref;
+    await updateDoc(docRef, { ...data, status: "submitted", submittedAt: new Date().toISOString() });
+    return { id: docRef.id, ...data };
+  }
+  
   const docRef = await addDoc(collection(db, "submissions"), { ...data, status: "submitted", submittedAt: new Date().toISOString() });
   return { id: docRef.id, ...data };
 };
