@@ -639,7 +639,6 @@ export default function TeacherDashboard() {
                     <option value="essay">Tự luận</option>
                     <option value="quiz">Trắc nghiệm</option>
                     <option value="video">Video</option>
-                    <option value="drawing">Vẽ tranh</option>
                   </select>
                   <select value={newAssignment.gradingType} onChange={e => setNewAssignment({...newAssignment, gradingType: e.target.value})} className="px-4 py-2 rounded-xl border border-slate-200 outline-none">
                     <option value="level">Mức độ</option>
@@ -703,9 +702,6 @@ export default function TeacherDashboard() {
                       ))}
                     </div>
                   </div>
-                )}
-                {newAssignment.type === 'drawing' && (
-                  <input type="url" placeholder="Đường dẫn ảnh mẫu (tùy chọn)" value={newAssignment.imageUrl} onChange={e => setNewAssignment({...newAssignment, imageUrl: e.target.value})} className="w-full px-4 py-2 rounded-xl border border-slate-200 outline-none" />
                 )}
                 {newAssignment.type === 'quiz' && (
                   <div className="pt-4 border-t border-slate-100">
@@ -1142,30 +1138,6 @@ function SubmissionCard({ sub, assignment, studentName, onGrade, suggestComment,
         {assignment?.type === "essay" && (
           <div className="space-y-4">
             <p className="text-slate-700 whitespace-pre-wrap">{sub.content?.text || sub.content}</p>
-            {sub.content?.attachments && sub.content.attachments.length > 0 && (
-              <div className="mt-4 pt-4 border-t border-slate-200">
-                <p className="text-sm font-bold text-slate-600 mb-2">Tệp đính kèm:</p>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                  {sub.content.attachments.map((att: any, i: number) => (
-                    <div key={i} className="rounded-xl overflow-hidden border-2 border-slate-200 bg-white aspect-square flex flex-col">
-                      {att.type === 'image' ? (
-                        <img src={att.url} alt={att.name} className="w-full h-full object-cover cursor-pointer hover:opacity-80 transition-opacity" onClick={() => setSelectedImage(att.url)} />
-                      ) : (
-                        <a href={att.url} target="_blank" rel="noopener noreferrer" className="flex-1 flex flex-col items-center justify-center p-2 text-center hover:bg-slate-50 transition-colors">
-                          {att.type === 'link' ? <ImageIcon className="w-8 h-8 text-amber-400 mb-1" /> : <Paperclip className="w-8 h-8 text-emerald-400 mb-1" />}
-                          <span className="text-xs font-bold text-slate-600 line-clamp-2 break-all">{att.name}</span>
-                        </a>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-        {assignment?.type === "drawing" && (
-          <div className="space-y-4">
-            <img src={sub.content?.text || sub.content} alt="Bài vẽ" className="max-w-full h-auto rounded-xl border border-slate-200 cursor-pointer hover:opacity-80 transition-opacity" onClick={() => setSelectedImage(sub.content?.text || sub.content)} />
             {sub.content?.attachments && sub.content.attachments.length > 0 && (
               <div className="mt-4 pt-4 border-t border-slate-200">
                 <p className="text-sm font-bold text-slate-600 mb-2">Tệp đính kèm:</p>
