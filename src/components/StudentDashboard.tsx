@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { getAssignments, getSubmissions, getBadges, updateStudent, addBadge } from "../firebase/db";
+import { getAssignments, getSubmissions, getBadges, updateStudent, addBadge, updateSubmission } from "../firebase/db";
 import { useAuth } from "../context/AuthContext";
 import { Link } from "react-router-dom";
 import { PlayCircle, CheckCircle, Star, Trophy, Clock, FileText, PenTool, Video, ArrowLeft, Gift, X } from "lucide-react";
@@ -42,11 +42,24 @@ export default function StudentDashboard() {
     setBadges(ba);
   };
 
-  const pendingAssignments = assignments.filter(a => !submissions.find(s => s.assignmentId === a.id));
-  const completedAssignments = assignments.filter(a => submissions.find(s => s.assignmentId === a.id));
+  const pendingAssignments = assignments.filter(a => {
+    const sub = submissions.find(s => s.assignmentId === a.id);
+    return !sub || sub.status === "redo_approved";
+  });
+  const completedAssignments = assignments.filter(a => {
+    const sub = submissions.find(s => s.assignmentId === a.id);
+    return sub && sub.status !== "redo_approved";
+  });
 
   const totalStars = submissions.reduce((acc, sub) => acc + (sub.stars || 0), 0);
   const availableStars = totalStars - (localSpinsUsed * 5);
+
+  const handleRequestRedo = async (submissionId: string) => {
+    if (window.confirm("Em có chắc chắn muốn xin làm lại bài này không?")) {
+      await updateSubmission(submissionId, { status: "redo_requested" });
+      loadData();
+    }
+  };
 
   const spinWheel = async () => {
     if (availableStars < 5 || isSpinning) return;
@@ -154,10 +167,9 @@ export default function StudentDashboard() {
                 <Link to={`/assignment/${a.id}`} key={a.id} className="group bg-white p-6 rounded-[2rem] shadow-sm border-4 border-slate-100 hover:border-sky-400 hover:shadow-xl transition-all hover:-translate-y-2 block relative overflow-hidden">
                   <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-sky-100 to-transparent rounded-bl-[3rem] -z-10 group-hover:scale-110 transition-transform"></div>
                   <div className="flex justify-between items-start mb-4">
-                    <div className={`p-4 rounded-2xl shadow-inner ${a.type === 'essay' ? 'bg-amber-100 text-amber-600' : a.type === 'video' ? 'bg-rose-100 text-rose-600' : a.type === 'drawing' ? 'bg-emerald-100 text-emerald-600' : 'bg-sky-100 text-sky-600'}`}>
+                    <div className={`p-4 rounded-2xl shadow-inner ${a.type === 'essay' ? 'bg-amber-100 text-amber-600' : a.type === 'video' ? 'bg-rose-100 text-rose-600' : 'bg-sky-100 text-sky-600'}`}>
                       {a.type === 'essay' && <FileText className="w-8 h-8" />}
                       {a.type === 'video' && <Video className="w-8 h-8" />}
-                      {a.type === 'drawing' && <PenTool className="w-8 h-8" />}
                       {a.type === 'quiz' && <CheckCircle className="w-8 h-8" />}
                     </div>
                     <div className="flex flex-col items-end gap-2">
@@ -168,7 +180,7 @@ export default function StudentDashboard() {
                   </div>
                   <h4 className="font-black text-xl text-slate-800 mb-2 group-hover:text-sky-600 transition-colors">{a.title}</h4>
                   <p className="text-base font-medium text-slate-500 line-clamp-2">
-                    {a.description || (a.type === 'essay' ? 'Viết một đoạn văn ngắn' : a.type === 'video' ? 'Xem video và trả lời câu hỏi' : a.type === 'drawing' ? 'Vẽ tranh sáng tạo' : 'Trả lời câu hỏi trắc nghiệm')}
+                    {a.description || (a.type === 'essay' ? 'Viết một đoạn văn ngắn' : a.type === 'video' ? 'Xem video và trả lời câu hỏi' : 'Trả lời câu hỏi trắc nghiệm')}
                   </p>
                   <div className="mt-4 flex justify-end">
                     <span className="inline-flex items-center gap-1 text-sky-500 font-bold bg-sky-50 px-3 py-1 rounded-xl group-hover:bg-sky-500 group-hover:text-white transition-colors">
@@ -205,20 +217,35 @@ export default function StudentDashboard() {
                         <p className="text-sm font-medium text-slate-500">Đã nộp: {sub?.submittedAt}</p>
                       </div>
                     </div>
-                    {sub?.status === "graded" ? (
-                      <div className="text-right flex flex-col items-end gap-1">
-                        {sub.level && (
-                          <span className={`inline-block px-4 py-1.5 rounded-xl text-sm font-black uppercase tracking-wider border-2 ${sub.level === 'Hoàn thành tốt' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : sub.level === 'Hoàn thành' ? 'bg-sky-100 text-sky-700 border-sky-200' : 'bg-rose-100 text-rose-700 border-rose-200'}`}>
-                            {sub.level}
-                          </span>
-                        )}
-                        {a.gradingType === 'score' && sub.score !== undefined && <p className="text-2xl font-black text-slate-800 bg-slate-50 px-3 py-1 rounded-xl border-2 border-slate-200">{sub.score} <span className="text-sm text-slate-500">điểm</span></p>}
-                      </div>
-                    ) : (
-                      <span className="bg-amber-100 text-amber-700 px-4 py-2 rounded-xl text-sm font-black border-2 border-amber-200 flex items-center gap-2">
-                        <Clock className="w-4 h-4 animate-spin-slow" /> Đang chờ chấm
-                      </span>
-                    )}
+                    <div className="flex items-center gap-4">
+                      {sub?.status === "graded" ? (
+                        <div className="text-right flex flex-col items-end gap-1">
+                          {sub.level && (
+                            <span className={`inline-block px-4 py-1.5 rounded-xl text-sm font-black uppercase tracking-wider border-2 ${sub.level === 'Hoàn thành tốt' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : sub.level === 'Hoàn thành' ? 'bg-sky-100 text-sky-700 border-sky-200' : 'bg-rose-100 text-rose-700 border-rose-200'}`}>
+                              {sub.level}
+                            </span>
+                          )}
+                          {a.gradingType === 'score' && sub.score !== undefined && <p className="text-2xl font-black text-slate-800 bg-slate-50 px-3 py-1 rounded-xl border-2 border-slate-200">{sub.score} <span className="text-sm text-slate-500">điểm</span></p>}
+                        </div>
+                      ) : sub?.status === "redo_requested" ? (
+                        <span className="bg-purple-100 text-purple-700 px-4 py-2 rounded-xl text-sm font-black border-2 border-purple-200 flex items-center gap-2">
+                          <Clock className="w-4 h-4 animate-spin-slow" /> Đang chờ duyệt làm lại
+                        </span>
+                      ) : (
+                        <span className="bg-amber-100 text-amber-700 px-4 py-2 rounded-xl text-sm font-black border-2 border-amber-200 flex items-center gap-2">
+                          <Clock className="w-4 h-4 animate-spin-slow" /> Đang chờ chấm
+                        </span>
+                      )}
+                      
+                      {sub?.status !== "redo_requested" && (
+                        <button 
+                          onClick={() => handleRequestRedo(sub!.id)}
+                          className="bg-slate-100 hover:bg-slate-200 text-slate-600 px-3 py-2 rounded-xl text-sm font-bold transition-colors border-2 border-slate-200"
+                        >
+                          Xin làm lại
+                        </button>
+                      )}
+                    </div>
                   </div>
                 );
               })}
