@@ -8,6 +8,7 @@ export default function InteractiveVideo({ videoUrl, questions, onComplete }: { 
   const [answeredQuestions, setAnsweredQuestions] = useState<number[]>([]);
   const playerRef = useRef<any>(null);
   const answeredQuestionsRef = useRef<number[]>([]);
+  const intervalRef = useRef<any>(null);
 
   const videoId = videoUrl ? (videoUrl.split("v=")[1]?.split("&")[0] || videoUrl.split("/").pop()) : "";
 
@@ -20,9 +21,22 @@ export default function InteractiveVideo({ videoUrl, questions, onComplete }: { 
     answeredQuestionsRef.current = answeredQuestions;
   }, [answeredQuestions]);
 
+  React.useEffect(() => {
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+    };
+  }, []);
+
   const handleStateChange = (event: any) => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+
     if (event.data === YouTube.PlayerState.PLAYING) {
-      const checkTime = setInterval(() => {
+      intervalRef.current = setInterval(() => {
         if (!playerRef.current) return;
         const currentTime = playerRef.current.getCurrentTime();
         const currentAnswered = answeredQuestionsRef.current;
@@ -45,8 +59,6 @@ export default function InteractiveVideo({ videoUrl, questions, onComplete }: { 
           });
         }
       }, 500);
-      
-      return () => clearInterval(checkTime);
     } else if (event.data === YouTube.PlayerState.PAUSED && currentQuestion) {
       // Ensure it stays paused if a question is active
       playerRef.current.pauseVideo();
