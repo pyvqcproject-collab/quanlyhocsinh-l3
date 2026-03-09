@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { getAssignments, getSubmissions, getBadges, updateStudent, addBadge, updateSubmission } from "../firebase/db";
+import { subscribeToAssignments, subscribeToSubmissions, subscribeToBadges, updateStudent, addBadge, updateSubmission } from "../firebase/db";
 import { useAuth } from "../context/AuthContext";
 import { Link } from "react-router-dom";
 import { PlayCircle, CheckCircle, Star, Trophy, Clock, FileText, PenTool, Video, ArrowLeft, Gift, X } from "lucide-react";
@@ -28,19 +28,19 @@ export default function StudentDashboard() {
 
   useEffect(() => {
     if (user) {
-      loadData();
       setLocalSpinsUsed(user.spinsUsed || 0);
+      
+      const unsubAssignments = subscribeToAssignments(setAssignments);
+      const unsubSubmissions = subscribeToSubmissions(setSubmissions, undefined, user.id);
+      const unsubBadges = subscribeToBadges(setBadges, user.id);
+      
+      return () => {
+        unsubAssignments();
+        unsubSubmissions();
+        unsubBadges();
+      };
     }
   }, [user]);
-
-  const loadData = async () => {
-    const as = await getAssignments();
-    const su = await getSubmissions(undefined, user.id);
-    const ba = await getBadges(user.id);
-    setAssignments(as);
-    setSubmissions(su);
-    setBadges(ba);
-  };
 
   const pendingAssignments = assignments.filter(a => {
     const sub = submissions.find(s => s.assignmentId === a.id);
@@ -57,7 +57,6 @@ export default function StudentDashboard() {
   const handleRequestRedo = async (submissionId: string) => {
     if (window.confirm("Em có chắc chắn muốn xin làm lại bài này không?")) {
       await updateSubmission(submissionId, { status: "redo_requested" });
-      loadData();
     }
   };
 
@@ -100,7 +99,6 @@ export default function StudentDashboard() {
         await updateStudent(user.id, { spinsUsed: newSpinsUsed - 1 });
       } else if (wonPrize.includes("Huy hiệu")) {
         await addBadge({ studentId: user.id, name: wonPrize, icon: "🌟" });
-        loadData();
       }
     }, 4000);
   };
