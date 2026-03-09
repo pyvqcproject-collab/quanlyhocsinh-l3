@@ -38,6 +38,7 @@ export default function TeacherDashboard() {
   const [filterResult, setFilterResult] = useState("");
   const [selectedChartData, setSelectedChartData] = useState<{ assignmentName: string, category: string, students: any[] } | null>(null);
   const [selectedStudentDetails, setSelectedStudentDetails] = useState<string | null>(null);
+  const [assignmentFilter, setAssignmentFilter] = useState<"all" | "pending" | "submitted" | "graded">("all");
   const [submissionFilter, setSubmissionFilter] = useState("pending");
 
   useEffect(() => {
@@ -610,9 +611,37 @@ export default function TeacherDashboard() {
 
       {activeTab === "assignments" && (
         <div className="space-y-6">
-          <div className="flex justify-between items-center">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <h2 className="text-2xl font-bold text-slate-800">Bài tập</h2>
-            <button onClick={() => setIsCreating(true)} className="bg-sky-500 text-white px-4 py-2 rounded-xl font-medium flex items-center gap-2 transition-colors"><Plus className="w-5 h-5" /> Giao bài</button>
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex bg-slate-100 p-1 rounded-xl">
+                <button 
+                  onClick={() => setAssignmentFilter("all")} 
+                  className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${assignmentFilter === "all" ? "bg-white text-sky-600 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+                >
+                  Tất cả
+                </button>
+                <button 
+                  onClick={() => setAssignmentFilter("pending")} 
+                  className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${assignmentFilter === "pending" ? "bg-white text-sky-600 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+                >
+                  Chưa nộp
+                </button>
+                <button 
+                  onClick={() => setAssignmentFilter("submitted")} 
+                  className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${assignmentFilter === "submitted" ? "bg-white text-sky-600 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+                >
+                  Đã nộp
+                </button>
+                <button 
+                  onClick={() => setAssignmentFilter("graded")} 
+                  className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${assignmentFilter === "graded" ? "bg-white text-sky-600 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+                >
+                  Đã chấm
+                </button>
+              </div>
+              <button onClick={() => setIsCreating(true)} className="bg-sky-500 text-white px-4 py-2 rounded-xl font-medium flex items-center gap-2 transition-colors"><Plus className="w-5 h-5" /> Giao bài</button>
+            </div>
           </div>
 
           {isCreating && (
@@ -720,7 +749,20 @@ export default function TeacherDashboard() {
           )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {assignments.map(a => (
+            {assignments.filter(a => {
+              if (assignmentFilter === "all") return true;
+              const assignmentSubmissions = submissions.filter(s => s.assignmentId === a.id);
+              if (assignmentFilter === "pending") {
+                return assignmentSubmissions.length === 0;
+              }
+              if (assignmentFilter === "submitted") {
+                return assignmentSubmissions.length > 0 && assignmentSubmissions.some(s => s.status !== "graded");
+              }
+              if (assignmentFilter === "graded") {
+                return assignmentSubmissions.length > 0 && assignmentSubmissions.every(s => s.status === "graded");
+              }
+              return true;
+            }).map(a => (
               <div key={a.id} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
                 <div className="flex justify-between items-start mb-1">
                   <h3 className="font-bold text-slate-800">{a.title}</h3>
@@ -737,6 +779,19 @@ export default function TeacherDashboard() {
               </div>
             ))}
           </div>
+          {assignments.filter(a => {
+            if (assignmentFilter === "all") return true;
+            const assignmentSubmissions = submissions.filter(s => s.assignmentId === a.id);
+            if (assignmentFilter === "pending") return assignmentSubmissions.length === 0;
+            if (assignmentFilter === "submitted") return assignmentSubmissions.length > 0 && assignmentSubmissions.some(s => s.status !== "graded");
+            if (assignmentFilter === "graded") return assignmentSubmissions.length > 0 && assignmentSubmissions.every(s => s.status === "graded");
+            return true;
+          }).length === 0 && (
+            <div className="text-center py-12 bg-white rounded-2xl border border-slate-200 border-dashed">
+              <FileText className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+              <p className="text-slate-500 font-medium">Không có bài tập nào phù hợp với bộ lọc.</p>
+            </div>
+          )}
         </div>
       )}
 
