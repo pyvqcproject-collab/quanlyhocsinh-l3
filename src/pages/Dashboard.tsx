@@ -6,7 +6,7 @@ import { LogOut } from "lucide-react";
 import { logout } from "../firebase/auth";
 import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { getAppSettings } from "../firebase/db";
+import { subscribeToAppSettings } from "../firebase/db";
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -14,10 +14,8 @@ export default function Dashboard() {
   const [appSettings, setAppSettings] = useState<any>({});
 
   useEffect(() => {
-    getAppSettings().then(setAppSettings);
-    const handleSettingsChange = () => getAppSettings().then(setAppSettings);
-    window.addEventListener('appSettingsChanged', handleSettingsChange);
-    return () => window.removeEventListener('appSettingsChanged', handleSettingsChange);
+    const unsub = subscribeToAppSettings(setAppSettings);
+    return () => unsub();
   }, []);
 
   const handleLogout = async () => {
