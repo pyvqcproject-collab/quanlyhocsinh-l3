@@ -23,12 +23,19 @@ export default function AttachmentManager({ attachments, onChange, label = "Đí
     const files = e.target.files;
     if (!files) return;
     
+    const newAttachments: Attachment[] = [];
+    let processedCount = 0;
+    
     Array.from(files).forEach(file => {
       const reader = new FileReader();
       reader.onload = (evt) => {
         if (evt.target?.result) {
           const type = file.type.startsWith('image/') ? 'image' : 'file';
-          onChange([...attachments, { type, url: evt.target.result as string, name: file.name }]);
+          newAttachments.push({ type, url: evt.target.result as string, name: file.name });
+        }
+        processedCount++;
+        if (processedCount === files.length) {
+          onChange([...attachments, ...newAttachments]);
         }
       };
       reader.readAsDataURL(file);
