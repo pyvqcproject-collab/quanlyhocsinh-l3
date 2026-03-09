@@ -37,6 +37,7 @@ export default function TeacherDashboard() {
   const [filterProgress, setFilterProgress] = useState("");
   const [filterResult, setFilterResult] = useState("");
   const [selectedChartData, setSelectedChartData] = useState<{ assignmentName: string, category: string, students: any[] } | null>(null);
+  const [selectedStudentDetails, setSelectedStudentDetails] = useState<string | null>(null);
   const [submissionFilter, setSubmissionFilter] = useState("pending");
 
   useEffect(() => {
@@ -368,7 +369,7 @@ export default function TeacherDashboard() {
 
     const studentList = filteredSubs.map(sub => {
       const st = students.find(s => s.id === sub.studentId);
-      return st ? st.name : sub.studentId;
+      return { id: sub.studentId, name: st ? st.name : sub.studentId };
     });
 
     setSelectedChartData({
@@ -833,10 +834,18 @@ export default function TeacherDashboard() {
               </div>
               {selectedChartData.students.length > 0 ? (
                 <ul className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                  {selectedChartData.students.map((name, idx) => (
-                    <li key={idx} className="bg-slate-50 px-4 py-2 rounded-xl text-slate-700 flex items-center gap-2 font-medium">
-                      <div className={`w-2 h-2 rounded-full ${selectedChartData.category === 'Tốt' ? 'bg-emerald-500' : selectedChartData.category === 'Đạt' ? 'bg-blue-500' : 'bg-rose-500'}`}></div>
-                      {name}
+                  {selectedChartData.students.map((student, idx) => (
+                    <li key={idx} className="bg-slate-50 px-4 py-2 rounded-xl text-slate-700 flex items-center justify-between font-medium">
+                      <div className="flex items-center gap-2">
+                        <div className={`w-2 h-2 rounded-full ${selectedChartData.category === 'Tốt' ? 'bg-emerald-500' : selectedChartData.category === 'Đạt' ? 'bg-blue-500' : 'bg-rose-500'}`}></div>
+                        {student.name}
+                      </div>
+                      <button 
+                        onClick={() => setSelectedStudentDetails(student.id)}
+                        className="text-xs bg-sky-100 text-sky-600 px-2 py-1 rounded-lg hover:bg-sky-200 transition-colors"
+                      >
+                        Xem chi tiết
+                      </button>
                     </li>
                   ))}
                 </ul>
@@ -1062,6 +1071,64 @@ export default function TeacherDashboard() {
               >
                 <Trash2 className="w-5 h-5" /> Reset dữ liệu năm học mới
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {selectedStudentDetails && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setSelectedStudentDetails(null)}>
+          <div className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="sticky top-0 bg-white border-b border-slate-100 p-6 flex justify-between items-center z-10 rounded-t-3xl">
+              <h2 className="text-2xl font-bold text-slate-800">
+                Chi tiết tiến độ: {students.find(s => s.id === selectedStudentDetails)?.name}
+              </h2>
+              <button onClick={() => setSelectedStudentDetails(null)} className="text-slate-400 hover:text-slate-600 bg-slate-100 hover:bg-slate-200 p-2 rounded-full transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              {assignments.length > 0 ? assignments.map(assignment => {
+                const sub = submissions.find(s => s.assignmentId === assignment.id && s.studentId === selectedStudentDetails);
+                return (
+                  <div key={assignment.id} className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                    <div className="flex justify-between items-start mb-2">
+                      <h4 className="font-bold text-slate-800 text-lg">{assignment.title}</h4>
+                      <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${
+                        !sub ? 'bg-slate-200 text-slate-600' : 
+                        sub.status === 'graded' ? 'bg-emerald-100 text-emerald-700' : 
+                        'bg-amber-100 text-amber-700'
+                      }`}>
+                        {!sub ? 'Chưa nộp' : sub.status === 'graded' ? 'Đã chấm' : 'Đã nộp'}
+                      </span>
+                    </div>
+                    {sub && sub.status === 'graded' && (
+                      <div className="mt-4 grid grid-cols-2 gap-4">
+                        <div className="bg-white p-3 rounded-xl border border-slate-100">
+                          <p className="text-xs text-slate-500 font-medium mb-1">Đánh giá</p>
+                          <p className={`font-bold ${
+                            sub.level === 'Hoàn thành tốt' || sub.score >= 8 ? 'text-emerald-600' :
+                            sub.level === 'Hoàn thành' || (sub.score >= 5 && sub.score < 8) ? 'text-blue-600' :
+                            'text-rose-600'
+                          }`}>{sub.level || (sub.score >= 8 ? 'Hoàn thành tốt' : sub.score >= 5 ? 'Hoàn thành' : 'Chưa hoàn thành')}</p>
+                        </div>
+                        <div className="bg-white p-3 rounded-xl border border-slate-100">
+                          <p className="text-xs text-slate-500 font-medium mb-1">Điểm / Sao</p>
+                          <p className="font-bold text-slate-800">{sub.score} điểm • {sub.stars || 0} 🌟</p>
+                        </div>
+                        {sub.comment && (
+                          <div className="col-span-2 bg-white p-3 rounded-xl border border-slate-100">
+                            <p className="text-xs text-slate-500 font-medium mb-1">Nhận xét</p>
+                            <p className="text-slate-700 text-sm">{sub.comment}</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              }) : (
+                <p className="text-slate-500 text-center py-8">Chưa có bài tập nào được giao.</p>
+              )}
             </div>
           </div>
         </div>
