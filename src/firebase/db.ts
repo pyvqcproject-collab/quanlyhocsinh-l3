@@ -1,5 +1,5 @@
 import { db, isMockMode } from "./config";
-import { collection, doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc, query, where, orderBy } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc, query, where, orderBy, onSnapshot } from "firebase/firestore";
 
 // Mock Data Store
 const loadMockData = () => {
@@ -27,11 +27,23 @@ export const mockData: Record<string, any[]> = loadMockData();
 
 let history: string[] = [];
 
+type Listener = () => void;
+const mockListeners: Listener[] = [];
+const notifyMockListeners = () => mockListeners.forEach(l => l());
+export const subscribeToMockData = (listener: Listener) => {
+  mockListeners.push(listener);
+  return () => {
+    const idx = mockListeners.indexOf(listener);
+    if (idx > -1) mockListeners.splice(idx, 1);
+  };
+};
+
 export const saveMockData = () => {
   if (isMockMode) {
     history.push(JSON.stringify(mockData));
     if (history.length > 20) history.shift(); // Keep last 20 states
     localStorage.setItem('mockData', JSON.stringify(mockData));
+    notifyMockListeners();
   }
 };
 
@@ -41,6 +53,7 @@ export const undoLastAction = () => {
     const previousState = history[history.length - 1];
     Object.assign(mockData, JSON.parse(previousState));
     localStorage.setItem('mockData', JSON.stringify(mockData));
+    notifyMockListeners();
     return true;
   }
   return false;
@@ -77,6 +90,17 @@ export const getAssignments = async () => {
   return snapshot.docs.map(d => Object.assign({ id: d.id }, d.data()));
 };
 
+export const subscribeToAssignments = (callback: (data: any[]) => void) => {
+  if (isMockMode) {
+    callback([...mockData.assignments]);
+    return subscribeToMockData(() => callback([...mockData.assignments]));
+  }
+  const q = query(collection(db, "assignments"), orderBy("dueDate", "desc"));
+  return onSnapshot(q, (snapshot) => {
+    callback(snapshot.docs.map(d => Object.assign({ id: d.id }, d.data())));
+  });
+};
+
 export const getAssignment = async (id: string) => {
   if (isMockMode) return mockData.assignments.find(a => a.id === id) || null;
   const docSnap = await getDoc(doc(db, "assignments", id));
@@ -106,6 +130,25 @@ export const getSubmissions = async (assignmentId?: string, studentId?: string) 
   if (studentId) q = query(q, where("studentId", "==", studentId));
   const snapshot = await getDocs(q);
   return snapshot.docs.map(d => Object.assign({ id: d.id }, d.data()));
+};
+
+export const subscribeToSubmissions = (callback: (data: any[]) => void, assignmentId?: string, studentId?: string) => {
+  if (isMockMode) {
+    const getFiltered = () => {
+      let subs = [...mockData.submissions];
+      if (assignmentId) subs = subs.filter(s => s.assignmentId === assignmentId);
+      if (studentId) subs = subs.filter(s => s.studentId === studentId);
+      return subs;
+    };
+    callback(getFiltered());
+    return subscribeToMockData(() => callback(getFiltered()));
+  }
+  let q = collection(db, "submissions") as any;
+  if (assignmentId) q = query(q, where("assignmentId", "==", assignmentId));
+  if (studentId) q = query(q, where("studentId", "==", studentId));
+  return onSnapshot(q, (snapshot) => {
+    callback(snapshot.docs.map(d => Object.assign({ id: d.id }, d.data())));
+  });
 };
 
 export const submitAssignment = async (data: any) => {
@@ -165,6 +208,18 @@ export const getBadges = async (studentId: string) => {
   return snapshot.docs.map(d => Object.assign({ id: d.id }, d.data()));
 };
 
+export const subscribeToBadges = (callback: (data: any[]) => void, studentId: string) => {
+  if (isMockMode) {
+    const getFiltered = () => mockData.badges.filter(b => b.studentId === studentId);
+    callback(getFiltered());
+    return subscribeToMockData(() => callback(getFiltered()));
+  }
+  const q = query(collection(db, "badges"), where("studentId", "==", studentId));
+  return onSnapshot(q, (snapshot) => {
+    callback(snapshot.docs.map(d => Object.assign({ id: d.id }, d.data())));
+  });
+};
+
 export const addBadge = async (data: any) => {
   if (isMockMode) {
     const newBadge = { id: generateId(), ...data };
@@ -183,11 +238,35 @@ export const getStudents = async () => {
   return snapshot.docs.map(d => Object.assign({ id: d.id }, d.data()));
 };
 
+export const subscribeToStudents = (callback: (data: any[]) => void) => {
+  if (isMockMode) {
+    const getFiltered = () => mockData.users.filter(u => u.role === "student");
+    callback(getFiltered());
+    return subscribeToMockData(() => callback(getFiltered()));
+  }
+  const q = query(collection(db, "users"), where("role", "==", "student"));
+  return onSnapshot(q, (snapshot) => {
+    callback(snapshot.docs.map(d => Object.assign({ id: d.id }, d.data())));
+  });
+};
+
 export const getTeachers = async () => {
   if (isMockMode) return mockData.users.filter(u => u.role === "teacher");
   const q = query(collection(db, "users"), where("role", "==", "teacher"));
   const snapshot = await getDocs(q);
   return snapshot.docs.map(d => Object.assign({ id: d.id }, d.data()));
+};
+
+export const subscribeToTeachers = (callback: (data: any[]) => void) => {
+  if (isMockMode) {
+    const getFiltered = () => mockData.users.filter(u => u.role === "teacher");
+    callback(getFiltered());
+    return subscribeToMockData(() => callback(getFiltered()));
+  }
+  const q = query(collection(db, "users"), where("role", "==", "teacher"));
+  return onSnapshot(q, (snapshot) => {
+    callback(snapshot.docs.map(d => Object.assign({ id: d.id }, d.data())));
+  });
 };
 
 const cleanUserData = (data: any) => {
@@ -388,6 +467,17 @@ export const getPosts = async () => {
   return snapshot.docs.map(d => Object.assign({ id: d.id }, d.data()));
 };
 
+export const subscribeToPosts = (callback: (data: any[]) => void) => {
+  if (isMockMode) {
+    callback([...mockData.posts]);
+    return subscribeToMockData(() => callback([...mockData.posts]));
+  }
+  const q = query(collection(db, "posts"), orderBy("createdAt", "desc"));
+  return onSnapshot(q, (snapshot) => {
+    callback(snapshot.docs.map(d => Object.assign({ id: d.id }, d.data())));
+  });
+};
+
 export const createPost = async (data: any) => {
   if (isMockMode) {
     const newPost = { id: generateId(), createdAt: new Date().toISOString(), ...data };
@@ -426,6 +516,16 @@ export const getAppSettings = async () => {
   if (isMockMode) return mockData.appSettings || {};
   const docSnap = await getDoc(doc(db, "settings", "app"));
   return docSnap.exists() ? docSnap.data() : {};
+};
+
+export const subscribeToAppSettings = (callback: (data: any) => void) => {
+  if (isMockMode) {
+    callback(mockData.appSettings || {});
+    return subscribeToMockData(() => callback(mockData.appSettings || {}));
+  }
+  return onSnapshot(doc(db, "settings", "app"), (docSnap) => {
+    callback(docSnap.exists() ? docSnap.data() : {});
+  });
 };
 
 export const updateAppSettings = async (data: any) => {
