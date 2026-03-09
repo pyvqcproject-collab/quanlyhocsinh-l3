@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { getAssignments, getSubmissions, createAssignment, gradeSubmission, getStudents, addStudent, updateAssignment, deleteAssignment, resetApp, updateStudent, deleteStudent, undoLastAction, getPosts, createPost, deletePost, updatePost, getAppSettings, updateAppSettings, getTeachers, addTeacher, updateTeacher, deleteTeacher, updateSubmission } from "../firebase/db";
+import { subscribeToAssignments, subscribeToSubmissions, createAssignment, gradeSubmission, subscribeToStudents, addStudent, updateAssignment, deleteAssignment, resetApp, updateStudent, deleteStudent, undoLastAction, subscribeToPosts, createPost, deletePost, updatePost, subscribeToAppSettings, updateAppSettings, subscribeToTeachers, addTeacher, updateTeacher, deleteTeacher, updateSubmission } from "../firebase/db";
 import { updateUserPassword, updateUserEmail, logout } from "../firebase/auth";
 import { Plus, FileText, Video, PenTool, CheckCircle, Sparkles, BarChart2, Users, Edit, Trash2, Upload, Download, Undo2, Image as ImageIcon, Paperclip, Settings, X, CheckCircle2, XCircle } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
@@ -45,41 +45,34 @@ export default function TeacherDashboard() {
   }, [user, teachers]);
 
   useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
-    console.log("Loading dashboard data...");
-    try {
-      const as = await getAssignments();
-      const su = await getSubmissions();
-      const st = await getStudents();
-      const te = await getTeachers();
-      const po = await getPosts();
-      const set = await getAppSettings();
-      console.log("Data loaded:", { assignments: as.length, students: st.length, teachers: te.length });
-      setAssignments(as);
-      setSubmissions(su);
-      setStudents(st);
-      setTeachers(te);
-      setPosts(po);
+    const unsubAssignments = subscribeToAssignments(setAssignments);
+    const unsubSubmissions = subscribeToSubmissions(setSubmissions);
+    const unsubStudents = subscribeToStudents(setStudents);
+    const unsubTeachers = subscribeToTeachers(setTeachers);
+    const unsubPosts = subscribeToPosts(setPosts);
+    const unsubSettings = subscribeToAppSettings((set) => {
       setAppSettings(set);
       setSettingsForm({
-        teacherName: (set as any).teacherName || "",
-        schoolName: (set as any).schoolName || "",
-        className: (set as any).className || "",
-        avatarUrl: (set as any).avatarUrl || "",
-        appName: (set as any).appName || ""
+        teacherName: set.teacherName || "",
+        schoolName: set.schoolName || "",
+        className: set.className || "",
+        avatarUrl: set.avatarUrl || "",
+        appName: set.appName || ""
       });
-    } catch (error) {
-      console.error("Failed to load data:", error);
-    }
-  };
+    });
+
+    return () => {
+      unsubAssignments();
+      unsubSubmissions();
+      unsubStudents();
+      unsubTeachers();
+      unsubPosts();
+      unsubSettings();
+    };
+  }, []);
 
   const handleUndo = () => {
-    if (undoLastAction()) {
-      loadData();
-    }
+    undoLastAction();
   };
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -93,7 +86,6 @@ export default function TeacherDashboard() {
       }
       setIsCreating(false);
       setNewAssignment({ title: "", description: "", imageUrl: "", type: "essay", dueDate: "", videoUrl: "", gradingType: "level", questions: [], attachments: [] });
-      loadData();
     } catch (error: any) {
       alert("Lỗi: " + error.message);
     }
@@ -102,7 +94,6 @@ export default function TeacherDashboard() {
   const handleDeleteAssignment = async (id: string) => {
     if (!confirm("Bạn có chắc chắn muốn xóa bài tập này? Tất cả bài làm và điểm thưởng của học sinh liên quan cũng sẽ bị xóa.")) return;
     await deleteAssignment(id);
-    loadData();
   };
 
   const handleResetApp = async () => {
@@ -110,7 +101,6 @@ export default function TeacherDashboard() {
     try {
       await resetApp();
       alert("Đã reset dữ liệu thành công cho năm học mới!");
-      loadData();
     } catch (error: any) {
       alert("Lỗi khi reset: " + error.message);
     }
@@ -156,7 +146,6 @@ export default function TeacherDashboard() {
       }
       setIsAddingStudent(false);
       setNewStudent({ username: "", password: "", name: "", gender: "", birthdate: "", avatarUrl: "" });
-      loadData();
     } catch (error: any) {
       alert("Lỗi: " + error.message);
     }
@@ -164,7 +153,6 @@ export default function TeacherDashboard() {
 
   const handleDeleteStudent = async (id: string) => {
     await deleteStudent(id);
-    loadData();
   };
 
   const handleEditStudent = (s: any) => {
@@ -194,7 +182,6 @@ export default function TeacherDashboard() {
       }
       setIsAddingTeacher(false);
       setNewTeacher({ username: "", password: "", name: "", avatarUrl: "", isAdmin: false });
-      loadData();
     } catch (error: any) {
       alert("Lỗi: " + error.message);
     }
@@ -202,7 +189,6 @@ export default function TeacherDashboard() {
 
   const handleDeleteTeacher = async (id: string) => {
     await deleteTeacher(id);
-    loadData();
   };
 
   const handleEditTeacher = (t: any) => {
@@ -235,7 +221,6 @@ export default function TeacherDashboard() {
           await addStudent({ username: row.username, name: row.name, password: row.password || "123456", gender: row.gender || "", birthdate: row.birthdate || "", email: `${row.username.toLowerCase()}@school.com` });
         }
       }
-      loadData();
       alert("Đã nhập thành công!");
     };
     reader.readAsBinaryString(file);
@@ -262,7 +247,6 @@ export default function TeacherDashboard() {
     else await createPost(newPost);
     setIsCreatingPost(false);
     setNewPost({ content: "", imageUrl: "", videoUrl: "", files: [] });
-    loadData();
   };
 
   const handleFileUploadPost = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -282,7 +266,6 @@ export default function TeacherDashboard() {
   const handleGrade = async (subId: string, data: any) => {
     try {
       await gradeSubmission(subId, data);
-      await loadData();
     } catch (error) {
       console.error("Error grading submission:", error);
       alert("Có lỗi xảy ra khi chấm bài. Vui lòng thử lại.");
@@ -292,7 +275,6 @@ export default function TeacherDashboard() {
   const handleApproveRedo = async (subId: string) => {
     if (window.confirm("Bạn có chắc chắn muốn cho phép học sinh làm lại bài này?")) {
       await updateSubmission(subId, { status: "redo_approved" });
-      loadData();
     }
   };
 
@@ -300,7 +282,6 @@ export default function TeacherDashboard() {
     e.preventDefault();
     await updateAppSettings(settingsForm);
     setIsEditingSettings(false);
-    loadData();
   };
 
   const suggestComment = async (content: string, studentName: string, assignment: any) => {
@@ -914,7 +895,7 @@ export default function TeacherDashboard() {
                   </div>
                   <div className="flex gap-2">
                     <button onClick={() => { setEditingPost(post); setNewPost({ ...post }); setIsCreatingPost(true); }} className="p-2 text-amber-500"><Edit className="w-4 h-4" /></button>
-                    <button onClick={async () => { await deletePost(post.id); loadData(); }} className="p-2 text-rose-500"><Trash2 className="w-4 h-4" /></button>
+                    <button onClick={async () => { await deletePost(post.id); }} className="p-2 text-rose-500"><Trash2 className="w-4 h-4" /></button>
                   </div>
                 </div>
                 <p className="text-slate-700 whitespace-pre-wrap mb-4">{post.content}</p>
