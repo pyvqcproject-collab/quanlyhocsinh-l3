@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { getAssignments, getSubmissions, getBadges, getPosts } from "../firebase/db";
+import { subscribeToAssignments, subscribeToSubmissions, subscribeToBadges, subscribeToPosts } from "../firebase/db";
 import { useAuth } from "../context/AuthContext";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { CheckCircle, Trophy, TrendingUp, AlertCircle, Image as ImageIcon, Paperclip } from "lucide-react";
@@ -15,27 +15,26 @@ export default function ParentDashboard() {
 
   useEffect(() => {
     if (user?.studentId) {
-      loadData(user.studentId);
+      const unsubAssignments = subscribeToAssignments(setAssignments);
+      const unsubSubmissions = subscribeToSubmissions(setSubmissions, undefined, user.studentId);
+      const unsubBadges = subscribeToBadges(setBadges, user.studentId);
+      const unsubPosts = subscribeToPosts(setPosts);
+
+      // Mock AI Analysis
+      setAnalysis({
+        improvementPercentage: 15,
+        trend: "Tiến bộ rõ rệt",
+        summary: `Bé đã hoàn thành rất tốt các bài tập tuần này. Cần khuyến khích bé đọc thêm sách.`
+      });
+
+      return () => {
+        unsubAssignments();
+        unsubSubmissions();
+        unsubBadges();
+        unsubPosts();
+      };
     }
   }, [user]);
-
-  const loadData = async (studentId: string) => {
-    const as = await getAssignments();
-    const su = await getSubmissions(undefined, studentId);
-    const ba = await getBadges(studentId);
-    const po = await getPosts();
-    setAssignments(as);
-    setSubmissions(su);
-    setBadges(ba);
-    setPosts(po);
-
-    // Mock AI Analysis
-    setAnalysis({
-      improvementPercentage: 15,
-      trend: "Tiến bộ rõ rệt",
-      summary: `Bé đã hoàn thành rất tốt các bài tập tuần này. Cần khuyến khích bé đọc thêm sách.`
-    });
-  };
 
   const chartData = [
     { name: 'Tuần 1', score: 7.5 },
