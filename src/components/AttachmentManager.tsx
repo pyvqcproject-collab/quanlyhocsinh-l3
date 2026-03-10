@@ -19,27 +19,36 @@ export default function AttachmentManager({ attachments, onChange, label = "Đí
   const [linkUrl, setLinkUrl] = useState("");
   const [linkName, setLinkName] = useState("");
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
-    if (!files) return;
+    if (!files || files.length === 0) return;
     
     const newAttachments: Attachment[] = [];
-    let processedCount = 0;
     
-    Array.from(files).forEach(file => {
-      const reader = new FileReader();
-      reader.onload = (evt) => {
-        if (evt.target?.result) {
-          const type = file.type.startsWith('image/') ? 'image' : 'file';
-          newAttachments.push({ type, url: evt.target.result as string, name: file.name });
-        }
-        processedCount++;
-        if (processedCount === files.length) {
-          onChange([...attachments, ...newAttachments]);
-        }
-      };
-      reader.readAsDataURL(file);
-    });
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      try {
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = (evt) => {
+            if (evt.target?.result) {
+              resolve(evt.target.result as string);
+            } else {
+              reject(new Error("No result"));
+            }
+          };
+          reader.onerror = () => reject(reader.error);
+          reader.readAsDataURL(file);
+        });
+        
+        const type = file.type.startsWith('image/') ? 'image' : 'file';
+        newAttachments.push({ type, url: dataUrl, name: file.name });
+      } catch (error) {
+        console.error("Error reading file:", file.name, error);
+      }
+    }
+    
+    onChange([...attachments, ...newAttachments]);
     
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
