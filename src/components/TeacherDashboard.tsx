@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { subscribeToAssignments, subscribeToSubmissions, createAssignment, gradeSubmission, subscribeToStudents, addStudent, updateAssignment, deleteAssignment, resetApp, updateStudent, deleteStudent, undoLastAction, subscribeToPosts, createPost, deletePost, updatePost, subscribeToAppSettings, updateAppSettings, subscribeToTeachers, addTeacher, updateTeacher, deleteTeacher, updateSubmission } from "../firebase/db";
 import { updateUserPassword, updateUserEmail, logout } from "../firebase/auth";
-import { Plus, FileText, Video, PenTool, CheckCircle, Sparkles, BarChart2, Users, Edit, Trash2, Upload, Download, Undo2, Image as ImageIcon, Paperclip, Settings, X, CheckCircle2, XCircle } from "lucide-react";
+import { Plus, FileText, Video, PenTool, CheckCircle, Sparkles, BarChart2, Users, Edit, Trash2, Upload, Download, Undo2, Image as ImageIcon, Paperclip, Settings, X, CheckCircle2, XCircle, BookOpen } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import * as XLSX from "xlsx";
 import AttachmentManager, { Attachment } from "./AttachmentManager";
+import Library from "./Library";
 import { useAuth } from "../context/AuthContext";
 
 export default function TeacherDashboard() {
@@ -388,6 +389,7 @@ export default function TeacherDashboard() {
           <button onClick={() => setActiveTab("students")} className={`px-4 py-2 font-medium rounded-t-lg ${activeTab === "students" ? "text-sky-600 border-b-2 border-sky-600" : "text-slate-500 hover:text-slate-700"}`}>Học sinh</button>
           {user?.isAdmin && <button onClick={() => setActiveTab("teachers")} className={`px-4 py-2 font-medium rounded-t-lg ${activeTab === "teachers" ? "text-sky-600 border-b-2 border-sky-600" : "text-slate-500 hover:text-slate-700"}`}>Giáo viên</button>}
           <button onClick={() => setActiveTab("assignments")} className={`px-4 py-2 font-medium rounded-t-lg ${activeTab === "assignments" ? "text-sky-600 border-b-2 border-sky-600" : "text-slate-500 hover:text-slate-700"}`}>Bài tập</button>
+          <button onClick={() => setActiveTab("library")} className={`px-4 py-2 font-medium rounded-t-lg ${activeTab === "library" ? "text-sky-600 border-b-2 border-sky-600" : "text-slate-500 hover:text-slate-700"}`}>Thư viện</button>
           <button onClick={() => setActiveTab("submissions")} className={`px-4 py-2 font-medium rounded-t-lg ${activeTab === "submissions" ? "text-sky-600 border-b-2 border-sky-600" : "text-slate-500 hover:text-slate-700"}`}>Chấm bài</button>
           <button onClick={() => setActiveTab("analytics")} className={`px-4 py-2 font-medium rounded-t-lg ${activeTab === "analytics" ? "text-sky-600 border-b-2 border-sky-600" : "text-slate-500 hover:text-slate-700"}`}>Thống kê</button>
           <button onClick={() => setActiveTab("posts")} className={`px-4 py-2 font-medium rounded-t-lg ${activeTab === "posts" ? "text-sky-600 border-b-2 border-sky-600" : "text-slate-500 hover:text-slate-700"}`}>Bảng tin</button>
@@ -413,6 +415,10 @@ export default function TeacherDashboard() {
         <button onClick={() => setActiveTab("assignments")} className={`flex flex-col items-center min-w-[64px] p-2 rounded-xl transition-colors ${activeTab === "assignments" ? "text-sky-600 bg-sky-50" : "text-slate-500 hover:bg-slate-50"}`}>
           <FileText className="w-6 h-6 mb-1" />
           <span className="text-[10px] font-medium">Bài tập</span>
+        </button>
+        <button onClick={() => setActiveTab("library")} className={`flex flex-col items-center min-w-[64px] p-2 rounded-xl transition-colors ${activeTab === "library" ? "text-sky-600 bg-sky-50" : "text-slate-500 hover:bg-slate-50"}`}>
+          <BookOpen className="w-6 h-6 mb-1" />
+          <span className="text-[10px] font-medium">Thư viện</span>
         </button>
         <button onClick={() => setActiveTab("submissions")} className={`flex flex-col items-center min-w-[64px] p-2 rounded-xl transition-colors ${activeTab === "submissions" ? "text-sky-600 bg-sky-50" : "text-slate-500 hover:bg-slate-50"}`}>
           <CheckCircle className="w-6 h-6 mb-1" />
@@ -793,6 +799,24 @@ export default function TeacherDashboard() {
             </div>
           )}
         </div>
+      )}
+
+      {activeTab === "library" && (
+        <Library onUseAssignment={(item) => {
+          setNewAssignment({
+            title: item.title,
+            description: item.description,
+            imageUrl: "",
+            type: item.type,
+            dueDate: new Date().toISOString().split('T')[0],
+            videoUrl: "",
+            gradingType: "level",
+            questions: item.questions || [],
+            attachments: []
+          });
+          setActiveTab("assignments");
+          setIsCreating(true);
+        }} />
       )}
 
       {activeTab === "submissions" && (
