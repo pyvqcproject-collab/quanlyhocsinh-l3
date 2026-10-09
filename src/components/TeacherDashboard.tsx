@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from "react";
-import { subscribeToAssignments, subscribeToSubmissions, createAssignment, gradeSubmission, subscribeToStudents, addStudent, updateAssignment, deleteAssignment, resetApp, updateStudent, deleteStudent, undoLastAction, subscribeToPosts, createPost, deletePost, updatePost, subscribeToAppSettings, updateAppSettings, subscribeToTeachers, addTeacher, updateTeacher, deleteTeacher, updateSubmission } from "../firebase/db";
+import { subscribeToAssignments, subscribeToSubmissions, createAssignment, gradeSubmission, subscribeToStudents, addStudent, updateAssignment, deleteAssignment, resetApp, updateStudent, deleteStudent, undoLastAction, subscribeToPosts, createPost, deletePost, updatePost, subscribeToAppSettings, updateAppSettings, subscribeToTeachers, addTeacher, updateTeacher, deleteTeacher, updateSubmission, DEFAULT_WHEEL_PRIZES, subscribeToNotifications, markNotificationAsRead, markAllNotificationsAsRead, deleteNotification, clearAllNotifications, subscribeToBadges } from "../firebase/db";
 import { updateUserPassword, updateUserEmail, logout } from "../firebase/auth";
-import { Plus, FileText, Video, PenTool, CheckCircle, Sparkles, BarChart2, Users, Edit, Trash2, Upload, Download, Undo2, Image as ImageIcon, Paperclip, Settings, X, CheckCircle2, XCircle, BookOpen } from "lucide-react";
+import { Plus, FileText, Video, PenTool, CheckCircle, Sparkles, BarChart2, Users, Edit, Trash2, Upload, Download, Undo2, Image as ImageIcon, Paperclip, Settings, X, CheckCircle2, XCircle, BookOpen, RotateCcw, Save, Check, Bell, Gift, ArrowUp, ArrowDown, UserCheck, FileSpreadsheet, CalendarCheck } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import * as XLSX from "xlsx";
 import AttachmentManager, { Attachment } from "./AttachmentManager";
 import Library from "./Library";
+import LuckyWheel, { WHEEL_COLORS } from "./LuckyWheel";
+import AttendanceAndEvaluation from "./AttendanceAndEvaluation";
 import { useAuth } from "../context/AuthContext";
+import { compressImageFile } from "../utils/imageCompressor";
 
 export default function TeacherDashboard() {
   const { user } = useAuth();
@@ -15,7 +18,9 @@ export default function TeacherDashboard() {
   const [students, setStudents] = useState<any[]>([]);
   const [teachers, setTeachers] = useState<any[]>([]);
   const [posts, setPosts] = useState<any[]>([]);
+  const [badges, setBadges] = useState<any[]>([]);
   const [appSettings, setAppSettings] = useState<any>({});
+  const [selectedStudentProfileId, setSelectedStudentProfileId] = useState<string | null>(null);
   const [isEditingSettings, setIsEditingSettings] = useState(false);
   const [settingsForm, setSettingsForm] = useState({ teacherName: "", schoolName: "", className: "", avatarUrl: "", appName: "" });
   const [activeTab, setActiveTab] = useState("assignments");
@@ -42,6 +47,19 @@ export default function TeacherDashboard() {
   const [assignmentFilter, setAssignmentFilter] = useState<"all" | "pending" | "submitted" | "graded">("all");
   const [submissionFilter, setSubmissionFilter] = useState("pending");
 
+  // Lucky wheel & Notification state
+  const [wheelPrizes, setWheelPrizes] = useState<string[]>(DEFAULT_WHEEL_PRIZES);
+  const [spinCost, setSpinCost] = useState(5);
+  const [newPrizeInput, setNewPrizeInput] = useState("");
+  const [editingPrizeIndex, setEditingPrizeIndex] = useState<number | null>(null);
+  const [editingPrizeText, setEditingPrizeText] = useState("");
+  const [isSavingWheel, setIsSavingWheel] = useState(false);
+  const [saveWheelSuccess, setSaveWheelSuccess] = useState(false);
+  const [previewRotation, setPreviewRotation] = useState(0);
+  const [isPreviewSpinning, setIsPreviewSpinning] = useState(false);
+  const [previewWinner, setPreviewWinner] = useState<string | null>(null);
+  const [notifications, setNotifications] = useState<any[]>([]);
+
   useEffect(() => {
     console.log("TeacherDashboard - Current User:", user);
     console.log("TeacherDashboard - Teachers List:", teachers);
@@ -53,6 +71,8 @@ export default function TeacherDashboard() {
     const unsubStudents = subscribeToStudents(setStudents);
     const unsubTeachers = subscribeToTeachers(setTeachers);
     const unsubPosts = subscribeToPosts(setPosts);
+    const unsubNotifications = subscribeToNotifications(setNotifications);
+    const unsubBadges = subscribeToBadges(setBadges);
     const unsubSettings = subscribeToAppSettings((set) => {
       setAppSettings(set);
       setSettingsForm({
@@ -62,6 +82,12 @@ export default function TeacherDashboard() {
         avatarUrl: set.avatarUrl || "",
         appName: set.appName || ""
       });
+      if (set.wheelPrizes && Array.isArray(set.wheelPrizes) && set.wheelPrizes.length >= 2) {
+        setWheelPrizes(set.wheelPrizes);
+      }
+      if (set.spinCost !== undefined && Number(set.spinCost) > 0) {
+        setSpinCost(Number(set.spinCost));
+      }
     });
 
     return () => {
@@ -71,8 +97,106 @@ export default function TeacherDashboard() {
       unsubTeachers();
       unsubPosts();
       unsubSettings();
+      unsubNotifications();
+      unsubBadges();
     };
   }, []);
+
+  const handleAddPrize = () => {
+    const trimmed = newPrizeInput.trim();
+    if (!trimmed) return;
+    if (wheelPrizes.length >= 16) {
+      alert("Vòng quay có tối đa 16 phần thưởng để các ô hiển thị rõ đẹp.");
+      return;
+    }
+    setWheelPrizes([...wheelPrizes, trimmed]);
+    setNewPrizeInput("");
+  };
+
+  const handleDeletePrize = (index: number) => {
+    if (wheelPrizes.length <= 2) {
+      alert("Vòng quay cần có tối thiểu 2 phần thưởng!");
+      return;
+    }
+    const updated = wheelPrizes.filter((_, i) => i !== index);
+    setWheelPrizes(updated);
+    if (editingPrizeIndex === index) {
+      setEditingPrizeIndex(null);
+    }
+  };
+
+  const handleStartEditPrize = (index: number) => {
+    setEditingPrizeIndex(index);
+    setEditingPrizeText(wheelPrizes[index]);
+  };
+
+  const handleSaveEditPrize = (index: number) => {
+    const trimmed = editingPrizeText.trim();
+    if (!trimmed) return;
+    const updated = [...wheelPrizes];
+    updated[index] = trimmed;
+    setWheelPrizes(updated);
+    setEditingPrizeIndex(null);
+  };
+
+  const handleMovePrize = (index: number, direction: 'up' | 'down') => {
+    const targetIdx = direction === 'up' ? index - 1 : index + 1;
+    if (targetIdx < 0 || targetIdx >= wheelPrizes.length) return;
+    const updated = [...wheelPrizes];
+    const temp = updated[index];
+    updated[index] = updated[targetIdx];
+    updated[targetIdx] = temp;
+    setWheelPrizes(updated);
+  };
+
+  const handleResetDefaultPrizes = () => {
+    if (window.confirm("Khôi phục danh sách phần thưởng vòng quay về mặc định?")) {
+      setWheelPrizes([...DEFAULT_WHEEL_PRIZES]);
+      setSpinCost(5);
+    }
+  };
+
+  const handleSaveWheelSettings = async () => {
+    if (wheelPrizes.length < 2) {
+      alert("Vòng quay cần có tối thiểu 2 phần thưởng!");
+      return;
+    }
+    setIsSavingWheel(true);
+    try {
+      await updateAppSettings({
+        wheelPrizes,
+        spinCost: Number(spinCost) || 5
+      });
+      setSaveWheelSuccess(true);
+      setTimeout(() => setSaveWheelSuccess(false), 3000);
+    } catch (err: any) {
+      alert("Lỗi khi lưu cấu hình vòng quay: " + err.message);
+    } finally {
+      setIsSavingWheel(false);
+    }
+  };
+
+  const handleTestSpin = () => {
+    if (isPreviewSpinning || wheelPrizes.length < 2) return;
+    setIsPreviewSpinning(true);
+    setPreviewWinner(null);
+
+    const targetIndex = Math.floor(Math.random() * wheelPrizes.length);
+    const won = wheelPrizes[targetIndex];
+
+    const sliceAngle = 360 / wheelPrizes.length;
+    const sliceCenter = targetIndex * sliceAngle + sliceAngle / 2;
+    const stopAngle = (360 - sliceCenter) % 360;
+    const currentAngle = ((previewRotation % 360) + 360) % 360;
+    const delta = ((stopAngle - currentAngle) % 360 + 360) % 360;
+    const newRot = previewRotation + (5 * 360) + delta;
+    setPreviewRotation(newRot);
+
+    setTimeout(() => {
+      setIsPreviewSpinning(false);
+      setPreviewWinner(won);
+    }, 4000);
+  };
 
   const handleUndo = () => {
     undoLastAction();
@@ -252,18 +376,31 @@ export default function TeacherDashboard() {
     setNewPost({ content: "", imageUrl: "", videoUrl: "", files: [] });
   };
 
-  const handleFileUploadPost = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUploadPost = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
-    Array.from(files).forEach((file: File) => {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        if (event.target?.result) {
-          setNewPost(prev => ({ ...prev, files: [...prev.files, { name: file.name, type: file.type, data: event.target!.result as string }] }));
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      try {
+        if (file.type.startsWith('image/')) {
+          const compressed = await compressImageFile(file, { maxWidth: 1400, maxHeight: 1400, quality: 0.85 });
+          setNewPost(prev => ({
+            ...prev,
+            files: [...prev.files, { name: file.name, type: file.type, data: compressed.dataUrl }]
+          }));
+        } else {
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            if (event.target?.result) {
+              setNewPost(prev => ({ ...prev, files: [...prev.files, { name: file.name, type: file.type, data: event.target!.result as string }] }));
+            }
+          };
+          reader.readAsDataURL(file);
         }
-      };
-      reader.readAsDataURL(file);
-    });
+      } catch (err) {
+        console.error("Lỗi nén ảnh tải lên:", err);
+      }
+    }
   };
 
   const handleGrade = async (subId: string, data: any) => {
@@ -383,65 +520,201 @@ export default function TeacherDashboard() {
 
   return (
     <div className="space-y-6 pb-24 md:pb-0">
-      {/* Desktop Tabs */}
-      <div className="hidden md:flex gap-4 border-b border-slate-200 pb-2 overflow-x-auto justify-between items-center">
-        <div className="flex gap-4">
-          <button onClick={() => setActiveTab("students")} className={`px-4 py-2 font-medium rounded-t-lg ${activeTab === "students" ? "text-sky-600 border-b-2 border-sky-600" : "text-slate-500 hover:text-slate-700"}`}>Học sinh</button>
-          {user?.isAdmin && <button onClick={() => setActiveTab("teachers")} className={`px-4 py-2 font-medium rounded-t-lg ${activeTab === "teachers" ? "text-sky-600 border-b-2 border-sky-600" : "text-slate-500 hover:text-slate-700"}`}>Giáo viên</button>}
-          <button onClick={() => setActiveTab("assignments")} className={`px-4 py-2 font-medium rounded-t-lg ${activeTab === "assignments" ? "text-sky-600 border-b-2 border-sky-600" : "text-slate-500 hover:text-slate-700"}`}>Bài tập</button>
-          <button onClick={() => setActiveTab("library")} className={`px-4 py-2 font-medium rounded-t-lg ${activeTab === "library" ? "text-sky-600 border-b-2 border-sky-600" : "text-slate-500 hover:text-slate-700"}`}>Thư viện</button>
-          <button onClick={() => setActiveTab("submissions")} className={`px-4 py-2 font-medium rounded-t-lg ${activeTab === "submissions" ? "text-sky-600 border-b-2 border-sky-600" : "text-slate-500 hover:text-slate-700"}`}>Chấm bài</button>
-          <button onClick={() => setActiveTab("analytics")} className={`px-4 py-2 font-medium rounded-t-lg ${activeTab === "analytics" ? "text-sky-600 border-b-2 border-sky-600" : "text-slate-500 hover:text-slate-700"}`}>Thống kê</button>
-          <button onClick={() => setActiveTab("posts")} className={`px-4 py-2 font-medium rounded-t-lg ${activeTab === "posts" ? "text-sky-600 border-b-2 border-sky-600" : "text-slate-500 hover:text-slate-700"}`}>Bảng tin</button>
-          <button onClick={() => setActiveTab("settings")} className={`px-4 py-2 font-medium rounded-t-lg ${activeTab === "settings" ? "text-sky-600 border-b-2 border-sky-600" : "text-slate-500 hover:text-slate-700"}`}>Cài đặt</button>
-        </div>
-        <button onClick={handleUndo} className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors">
-          <Undo2 className="w-4 h-4" /> Hoàn tác
-        </button>
-      </div>
-
-      {/* Mobile Bottom Navigation */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-50 px-2 py-2 flex justify-around items-center overflow-x-auto">
-        <button onClick={() => setActiveTab("students")} className={`flex flex-col items-center min-w-[64px] p-2 rounded-xl transition-colors ${activeTab === "students" ? "text-sky-600 bg-sky-50" : "text-slate-500 hover:bg-slate-50"}`}>
-          <Users className="w-6 h-6 mb-1" />
-          <span className="text-[10px] font-medium">Học sinh</span>
-        </button>
-        {user?.isAdmin && (
-          <button onClick={() => setActiveTab("teachers")} className={`flex flex-col items-center min-w-[64px] p-2 rounded-xl transition-colors ${activeTab === "teachers" ? "text-sky-600 bg-sky-50" : "text-slate-500 hover:bg-slate-50"}`}>
-            <Users className="w-6 h-6 mb-1" />
-            <span className="text-[10px] font-medium">Giáo viên</span>
+      {/* Top Navigation Tabs: Responsive on both Desktop & Mobile (Scrollable Chip Bar) */}
+      <div className="flex items-center justify-between gap-3 p-1.5 bg-slate-100/90 rounded-2xl border border-slate-200/80 shadow-xs">
+        <div className="flex items-center gap-1.5 overflow-x-auto py-0.5 scrollbar-none max-w-full">
+          <button
+            onClick={() => setActiveTab("assignments")}
+            className={`px-3.5 py-2 font-bold text-xs sm:text-sm rounded-xl transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
+              activeTab === "assignments"
+                ? "bg-white text-sky-600 shadow-sm shadow-slate-200"
+                : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
+            }`}
+          >
+            <FileText className="w-4 h-4" /> Bài tập
           </button>
-        )}
-        <button onClick={() => setActiveTab("assignments")} className={`flex flex-col items-center min-w-[64px] p-2 rounded-xl transition-colors ${activeTab === "assignments" ? "text-sky-600 bg-sky-50" : "text-slate-500 hover:bg-slate-50"}`}>
-          <FileText className="w-6 h-6 mb-1" />
-          <span className="text-[10px] font-medium">Bài tập</span>
-        </button>
-        <button onClick={() => setActiveTab("library")} className={`flex flex-col items-center min-w-[64px] p-2 rounded-xl transition-colors ${activeTab === "library" ? "text-sky-600 bg-sky-50" : "text-slate-500 hover:bg-slate-50"}`}>
-          <BookOpen className="w-6 h-6 mb-1" />
-          <span className="text-[10px] font-medium">Thư viện</span>
-        </button>
-        <button onClick={() => setActiveTab("submissions")} className={`flex flex-col items-center min-w-[64px] p-2 rounded-xl transition-colors ${activeTab === "submissions" ? "text-sky-600 bg-sky-50" : "text-slate-500 hover:bg-slate-50"}`}>
-          <CheckCircle className="w-6 h-6 mb-1" />
-          <span className="text-[10px] font-medium">Chấm bài</span>
-        </button>
-        <button onClick={() => setActiveTab("analytics")} className={`flex flex-col items-center min-w-[64px] p-2 rounded-xl transition-colors ${activeTab === "analytics" ? "text-sky-600 bg-sky-50" : "text-slate-500 hover:bg-slate-50"}`}>
-          <BarChart2 className="w-6 h-6 mb-1" />
-          <span className="text-[10px] font-medium">Thống kê</span>
-        </button>
-        <button onClick={() => setActiveTab("posts")} className={`flex flex-col items-center min-w-[64px] p-2 rounded-xl transition-colors ${activeTab === "posts" ? "text-sky-600 bg-sky-50" : "text-slate-500 hover:bg-slate-50"}`}>
-          <PenTool className="w-6 h-6 mb-1" />
-          <span className="text-[10px] font-medium">Bảng tin</span>
-        </button>
-        <button onClick={() => setActiveTab("settings")} className={`flex flex-col items-center min-w-[64px] p-2 rounded-xl transition-colors ${activeTab === "settings" ? "text-sky-600 bg-sky-50" : "text-slate-500 hover:bg-slate-50"}`}>
-          <Settings className="w-6 h-6 mb-1" />
-          <span className="text-[10px] font-medium">Cài đặt</span>
+
+          <button
+            onClick={() => setActiveTab("students")}
+            className={`px-3.5 py-2 font-bold text-xs sm:text-sm rounded-xl transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
+              activeTab === "students"
+                ? "bg-white text-sky-600 shadow-sm shadow-slate-200"
+                : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
+            }`}
+          >
+            <Users className="w-4 h-4" /> Học sinh
+          </button>
+
+          <button
+            onClick={() => setActiveTab("attendance")}
+            className={`px-3.5 py-2 font-bold text-xs sm:text-sm rounded-xl transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
+              activeTab === "attendance"
+                ? "bg-emerald-600 text-white shadow-sm shadow-emerald-200"
+                : "text-emerald-700 hover:text-emerald-900 hover:bg-white/60 bg-emerald-50/60"
+            }`}
+          >
+            <UserCheck className="w-4 h-4" /> Điểm danh & Đánh giá 📋
+          </button>
+
+          <button
+            onClick={() => setActiveTab("library")}
+            className={`px-3.5 py-2 font-bold text-xs sm:text-sm rounded-xl transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
+              activeTab === "library"
+                ? "bg-indigo-600 text-white shadow-sm shadow-indigo-200"
+                : "text-indigo-600 hover:text-indigo-900 hover:bg-white/60 bg-indigo-50/50"
+            }`}
+          >
+            <BookOpen className="w-4 h-4" /> Thư viện 📚
+          </button>
+
+          <button
+            onClick={() => setActiveTab("submissions")}
+            className={`px-3.5 py-2 font-bold text-xs sm:text-sm rounded-xl transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
+              activeTab === "submissions"
+                ? "bg-white text-sky-600 shadow-sm shadow-slate-200"
+                : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
+            }`}
+          >
+            <CheckCircle className="w-4 h-4" /> Chấm bài
+          </button>
+
+          <button
+            onClick={() => setActiveTab("wheel")}
+            className={`px-3.5 py-2 font-bold text-xs sm:text-sm rounded-xl transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
+              activeTab === "wheel"
+                ? "bg-white text-amber-600 shadow-sm shadow-slate-200"
+                : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
+            }`}
+          >
+            <span>🎡</span> Vòng quay
+          </button>
+
+          <button
+            onClick={() => setActiveTab("analytics")}
+            className={`px-3.5 py-2 font-bold text-xs sm:text-sm rounded-xl transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
+              activeTab === "analytics"
+                ? "bg-white text-sky-600 shadow-sm shadow-slate-200"
+                : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
+            }`}
+          >
+            <BarChart2 className="w-4 h-4" /> Thống kê
+          </button>
+
+          <button
+            onClick={() => setActiveTab("posts")}
+            className={`px-3.5 py-2 font-bold text-xs sm:text-sm rounded-xl transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
+              activeTab === "posts"
+                ? "bg-white text-sky-600 shadow-sm shadow-slate-200"
+                : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
+            }`}
+          >
+            <PenTool className="w-4 h-4" /> Bảng tin
+          </button>
+
+          {user?.isAdmin && (
+            <button
+              onClick={() => setActiveTab("teachers")}
+              className={`px-3.5 py-2 font-bold text-xs sm:text-sm rounded-xl transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
+                activeTab === "teachers"
+                  ? "bg-white text-sky-600 shadow-sm shadow-slate-200"
+                  : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
+              }`}
+            >
+              <Users className="w-4 h-4" /> Giáo viên
+            </button>
+          )}
+
+          <button
+            onClick={() => setActiveTab("settings")}
+            className={`px-3.5 py-2 font-bold text-xs sm:text-sm rounded-xl transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
+              activeTab === "settings"
+                ? "bg-white text-sky-600 shadow-sm shadow-slate-200"
+                : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
+            }`}
+          >
+            <Settings className="w-4 h-4" /> Cài đặt
+          </button>
+        </div>
+
+        <button
+          onClick={handleUndo}
+          className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-slate-600 bg-white hover:bg-slate-50 border border-slate-200/80 rounded-xl shadow-xs transition-colors shrink-0 cursor-pointer active:scale-95"
+          title="Hoàn tác thao tác trước"
+        >
+          <Undo2 className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Hoàn tác</span>
         </button>
       </div>
 
-      {/* Mobile Header Actions (Undo) */}
-      <div className="md:hidden flex justify-end mb-4">
-        <button onClick={handleUndo} className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 bg-white border border-slate-200 shadow-sm hover:bg-slate-50 rounded-xl transition-colors">
-          <Undo2 className="w-4 h-4" /> Hoàn tác
+      {/* Mobile Android Bottom Navigation Bar (Material 3 Style, 5 Core Destinations) */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-200/90 shadow-[0_-4px_20px_-2px_rgba(0,0,0,0.06)] z-40 px-2 py-1.5 flex items-center justify-around">
+        <button
+          onClick={() => setActiveTab("assignments")}
+          className={`flex flex-col items-center flex-1 py-1 transition-all cursor-pointer ${
+            activeTab === "assignments" ? "text-sky-600" : "text-slate-500 hover:text-slate-800"
+          }`}
+        >
+          <div className={`p-1.5 px-3 rounded-full mb-0.5 transition-all ${activeTab === "assignments" ? "bg-sky-100 text-sky-600" : ""}`}>
+            <FileText className="w-5 h-5" />
+          </div>
+          <span className="text-[10px] font-bold">Bài tập</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab("students")}
+          className={`flex flex-col items-center flex-1 py-1 transition-all cursor-pointer ${
+            activeTab === "students" ? "text-sky-600" : "text-slate-500 hover:text-slate-800"
+          }`}
+        >
+          <div className={`p-1.5 px-3 rounded-full mb-0.5 transition-all ${activeTab === "students" ? "bg-sky-100 text-sky-600" : ""}`}>
+            <Users className="w-5 h-5" />
+          </div>
+          <span className="text-[10px] font-bold">Học sinh</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab("attendance")}
+          className={`flex flex-col items-center flex-1 py-1 transition-all cursor-pointer ${
+            activeTab === "attendance" ? "text-emerald-600" : "text-slate-500 hover:text-slate-800"
+          }`}
+        >
+          <div className={`p-1.5 px-3 rounded-full mb-0.5 transition-all ${activeTab === "attendance" ? "bg-emerald-100 text-emerald-600" : ""}`}>
+            <UserCheck className="w-5 h-5" />
+          </div>
+          <span className="text-[10px] font-bold">Điểm danh</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab("library")}
+          className={`flex flex-col items-center flex-1 py-1 transition-all cursor-pointer ${
+            activeTab === "library" ? "text-indigo-600" : "text-slate-500 hover:text-slate-800"
+          }`}
+        >
+          <div className={`p-1.5 px-3 rounded-full mb-0.5 transition-all ${activeTab === "library" ? "bg-indigo-100 text-indigo-600" : ""}`}>
+            <BookOpen className="w-5 h-5" />
+          </div>
+          <span className="text-[10px] font-extrabold text-indigo-700">Thư viện</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab("wheel")}
+          className={`flex flex-col items-center flex-1 py-1 transition-all cursor-pointer ${
+            activeTab === "wheel" ? "text-amber-600" : "text-slate-500 hover:text-slate-800"
+          }`}
+        >
+          <div className={`p-1.5 px-3 rounded-full mb-0.5 transition-all ${activeTab === "wheel" ? "bg-amber-100 text-amber-600" : ""}`}>
+            <span className="text-lg leading-none">🎡</span>
+          </div>
+          <span className="text-[10px] font-bold">Vòng quay</span>
+        </button>
+      </div>
+
+      {/* Mobile Top Actions (Undo) */}
+      <div className="md:hidden flex justify-end">
+        <button
+          onClick={handleUndo}
+          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-600 bg-white border border-slate-200/80 shadow-xs rounded-xl transition-colors active:scale-95 cursor-pointer"
+        >
+          <Undo2 className="w-3.5 h-3.5" /> Hoàn tác
         </button>
       </div>
 
@@ -534,7 +807,13 @@ export default function TeacherDashboard() {
                   return (
                   <tr key={s.id} className="border-b border-slate-50 hover:bg-slate-50">
                     <td className="p-4 font-medium text-slate-800">{s.id}</td>
-                    <td className="p-4 text-slate-600">{s.name}</td>
+                    <td 
+                      onClick={() => { setSelectedStudentProfileId(s.id); setActiveTab("attendance"); }}
+                      className="p-4 font-bold text-slate-800 hover:text-sky-600 cursor-pointer transition-colors"
+                      title="Bấm để xem hồ sơ chi tiết, điểm danh và xuất Excel"
+                    >
+                      {s.name}
+                    </td>
                     <td className="p-4 text-slate-600">{s.gender}</td>
                     <td className="p-4 text-slate-600">
                       <div className="flex items-center gap-2">
@@ -546,9 +825,16 @@ export default function TeacherDashboard() {
                     </td>
                     <td className="p-4 text-slate-600 text-lg tracking-widest">{metrics.emojis}</td>
                     <td className="p-4 text-right">
-                      <div className="flex justify-end gap-2">
-                        <button onClick={() => handleEditStudent(s)} className="p-2 text-amber-500 hover:bg-amber-50 rounded-lg"><Edit className="w-4 h-4" /></button>
-                        <button onClick={() => handleDeleteStudent(s.id)} className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg"><Trash2 className="w-4 h-4" /></button>
+                      <div className="flex justify-end gap-1.5">
+                        <button 
+                          onClick={() => { setSelectedStudentProfileId(s.id); setActiveTab("attendance"); }} 
+                          className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors cursor-pointer"
+                          title="Hồ sơ theo dõi, điểm danh & Xuất Excel"
+                        >
+                          <FileSpreadsheet className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => handleEditStudent(s)} className="p-2 text-amber-500 hover:bg-amber-50 rounded-lg transition-colors cursor-pointer" title="Sửa thông tin"><Edit className="w-4 h-4" /></button>
+                        <button onClick={() => handleDeleteStudent(s.id)} className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer" title="Xóa học sinh"><Trash2 className="w-4 h-4" /></button>
                       </div>
                     </td>
                   </tr>
@@ -646,13 +932,36 @@ export default function TeacherDashboard() {
                   Đã chấm
                 </button>
               </div>
-              <button onClick={() => setIsCreating(true)} className="bg-sky-500 text-white px-4 py-2 rounded-xl font-medium flex items-center gap-2 transition-colors"><Plus className="w-5 h-5" /> Giao bài</button>
+              <div className="flex items-center gap-2">
+                <button 
+                  type="button" 
+                  onClick={() => setActiveTab("library")} 
+                  className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200/80 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 shadow-xs"
+                  title="Mở kho đề tham khảo môn Toán, Tiếng Việt, TNXH, Tiếng Anh lớp 3"
+                >
+                  <BookOpen className="w-4 h-4 text-indigo-600" /> <span className="hidden sm:inline">Thư viện bài tập</span><span className="sm:hidden">Thư viện</span>
+                </button>
+                <button onClick={() => setIsCreating(true)} className="bg-sky-500 hover:bg-sky-600 text-white px-4 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all cursor-pointer active:scale-95 shadow-sm shadow-sky-500/25">
+                  <Plus className="w-5 h-5" /> Giao bài
+                </button>
+              </div>
             </div>
           </div>
 
           {isCreating && (
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-              <h3 className="text-lg font-bold mb-4">{editingAssignment ? "Sửa bài tập" : "Giao bài tập"}</h3>
+            <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
+              <div className="flex items-center justify-between mb-4 pb-2 border-b border-slate-100">
+                <h3 className="text-base sm:text-lg font-extrabold text-slate-800">{editingAssignment ? "Sửa bài tập" : "Giao bài tập mới"}</h3>
+                {!editingAssignment && (
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("library")}
+                    className="text-xs font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-xl border border-indigo-200 transition-colors flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <BookOpen className="w-3.5 h-3.5" /> Chọn từ Thư viện mẫu 📚
+                  </button>
+                )}
+              </div>
               <form onSubmit={handleCreate} className="space-y-4">
                 <input type="text" placeholder="Tiêu đề" value={newAssignment.title} onChange={e => setNewAssignment({...newAssignment, title: e.target.value})} className="w-full px-4 py-2 rounded-xl border border-slate-200 outline-none" required />
                 <textarea placeholder="Mô tả" value={newAssignment.description} onChange={e => setNewAssignment({...newAssignment, description: e.target.value})} className="w-full px-4 py-2 rounded-xl border border-slate-200 outline-none min-h-[100px]"></textarea>
@@ -817,6 +1126,19 @@ export default function TeacherDashboard() {
           setActiveTab("assignments");
           setIsCreating(true);
         }} />
+      )}
+
+      {activeTab === "attendance" && (
+        <AttendanceAndEvaluation
+          students={students}
+          assignments={assignments}
+          submissions={submissions}
+          badges={badges}
+          appSettings={appSettings}
+          currentTeacherName={appSettings.teacherName || user?.name || "Cô Lan"}
+          initialSelectedStudentId={selectedStudentProfileId}
+          onCloseStudentDetail={() => setSelectedStudentProfileId(null)}
+        />
       )}
 
       {activeTab === "submissions" && (
@@ -1002,12 +1324,429 @@ export default function TeacherDashboard() {
         </div>
       )}
 
+      {activeTab === "wheel" && (
+        <div className="space-y-6">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
+            <div>
+              <h2 className="text-2xl font-black text-slate-800 flex items-center gap-2">
+                <span>🎡</span> Quản lý Vòng quay may mắn
+              </h2>
+              <p className="text-sm text-slate-500 mt-1">
+                Tùy chỉnh các mục phần thưởng trên vòng quay cho học sinh và nhận thông báo khi có học sinh quay thưởng.
+              </p>
+            </div>
+            <div className="flex items-center gap-3 w-full sm:w-auto">
+              <button
+                type="button"
+                onClick={handleResetDefaultPrizes}
+                className="flex-1 sm:flex-initial px-4 py-2.5 text-sm font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors flex items-center justify-center gap-2"
+                title="Khôi phục các phần thưởng mặc định"
+              >
+                <RotateCcw className="w-4 h-4" /> Mặc định
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveWheelSettings}
+                disabled={isSavingWheel}
+                className={`flex-1 sm:flex-initial px-6 py-2.5 rounded-xl font-bold text-white shadow-md flex items-center justify-center gap-2 transition-all ${
+                  saveWheelSuccess
+                    ? "bg-emerald-600 hover:bg-emerald-700"
+                    : "bg-amber-500 hover:bg-amber-600"
+                }`}
+              >
+                {saveWheelSuccess ? (
+                  <>
+                    <Check className="w-4 h-4" /> Đã lưu thành công!
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4" /> {isSavingWheel ? "Đang lưu..." : "Lưu thay đổi"}
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            {/* Left Column: Prize list & Star cost */}
+            <div className="lg:col-span-7 space-y-6">
+              {/* Prize list card */}
+              <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 space-y-6">
+                <div className="flex justify-between items-center border-b border-slate-100 pb-4">
+                  <div>
+                    <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                      <Gift className="w-5 h-5 text-amber-500" /> Các mục phần thưởng trên vòng quay
+                    </h3>
+                    <p className="text-xs text-slate-400 mt-0.5">Vòng quay hiển thị tối thiểu 2 và tối đa 16 mục</p>
+                  </div>
+                  <span className="bg-amber-100 text-amber-700 font-bold text-xs px-3 py-1 rounded-full">
+                    {wheelPrizes.length} phần thưởng
+                  </span>
+                </div>
+
+                {/* Form add new prize */}
+                <div className="space-y-3">
+                  <label className="block text-sm font-semibold text-slate-700">Thêm mục mới</label>
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      handleAddPrize();
+                    }}
+                    className="flex gap-2"
+                  >
+                    <input
+                      type="text"
+                      placeholder="Ví dụ: '10 điểm thưởng', 'Huy hiệu Chiến binh', 'Phiếu quà tặng'..."
+                      value={newPrizeInput}
+                      onChange={(e) => setNewPrizeInput(e.target.value)}
+                      className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none text-sm transition-all"
+                    />
+                    <button
+                      type="submit"
+                      disabled={!newPrizeInput.trim()}
+                      className="bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white font-bold px-5 py-2.5 rounded-xl text-sm transition-colors flex items-center gap-1.5 shrink-0 shadow-sm cursor-pointer disabled:cursor-not-allowed"
+                    >
+                      <Plus className="w-4 h-4" /> Thêm
+                    </button>
+                  </form>
+
+                  {/* Suggestions Chips */}
+                  <div>
+                    <p className="text-xs text-slate-400 mb-1.5 font-medium">Gợi ý phần thưởng thường dùng (bấm để thêm nhanh):</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {[
+                        "10 điểm thưởng",
+                        "5 điểm thưởng",
+                        "Huy hiệu Chăm chỉ",
+                        "Huy hiệu Thông thái",
+                        "Huy hiệu Siêu sao",
+                        "Tràng pháo tay",
+                        "Thêm 1 lượt quay",
+                        "Chúc may mắn lần sau",
+                        "Quà bí mật từ cô",
+                        "Phiếu miễn bài tập"
+                      ].map((item) => (
+                        <button
+                          key={item}
+                          type="button"
+                          onClick={() => {
+                            if (!wheelPrizes.includes(item)) {
+                              setWheelPrizes([...wheelPrizes, item]);
+                            }
+                          }}
+                          className={`text-xs px-2.5 py-1 rounded-lg border transition-all ${
+                            wheelPrizes.includes(item)
+                              ? "bg-slate-50 text-slate-400 border-slate-200 cursor-default"
+                              : "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100 hover:border-amber-300 cursor-pointer"
+                          }`}
+                        >
+                          + {item}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Slices list */}
+                <div className="space-y-2 pt-2">
+                  <label className="block text-sm font-semibold text-slate-700">
+                    Danh sách các ô trên vòng quay (Thứ tự theo chiều kim đồng hồ)
+                  </label>
+                  <div className="space-y-2 max-h-[380px] overflow-y-auto pr-1">
+                    {wheelPrizes.map((prizeText, index) => {
+                      const isEditing = editingPrizeIndex === index;
+                      const sliceColor = WHEEL_COLORS[index % WHEEL_COLORS.length];
+
+                      return (
+                        <div
+                          key={index}
+                          className="flex items-center justify-between gap-3 p-3 bg-slate-50 hover:bg-slate-100/80 rounded-2xl border border-slate-200 transition-colors"
+                        >
+                          <div className="flex items-center gap-3 flex-1 min-w-0">
+                            {/* Color & index indicator */}
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <span
+                                className="w-4 h-4 rounded-full border border-white shadow-xs"
+                                style={{ backgroundColor: sliceColor }}
+                              />
+                              <span className="text-xs font-bold text-slate-400 w-5">#{index + 1}</span>
+                            </div>
+
+                            {/* Content */}
+                            {isEditing ? (
+                              <input
+                                type="text"
+                                autoFocus
+                                value={editingPrizeText}
+                                onChange={(e) => setEditingPrizeText(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") handleSaveEditPrize(index);
+                                  if (e.key === "Escape") setEditingPrizeIndex(null);
+                                }}
+                                className="flex-1 px-3 py-1.5 rounded-lg border border-amber-400 bg-white outline-none text-sm font-semibold text-slate-800"
+                              />
+                            ) : (
+                              <span className="text-sm font-semibold text-slate-800 truncate">
+                                {prizeText}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Reorder and action buttons */}
+                          <div className="flex items-center gap-1 shrink-0">
+                            {isEditing ? (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => handleSaveEditPrize(index)}
+                                  className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors cursor-pointer"
+                                  title="Lưu sửa đổi"
+                                >
+                                  <Check className="w-4 h-4" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setEditingPrizeIndex(null)}
+                                  className="p-1.5 text-slate-400 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
+                                  title="Hủy"
+                                >
+                                  <X className="w-4 h-4" />
+                                </button>
+                              </>
+                            ) : (
+                              <>
+                                <button
+                                  type="button"
+                                  disabled={index === 0}
+                                  onClick={() => handleMovePrize(index, "up")}
+                                  className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200 rounded-lg disabled:opacity-30 transition-colors cursor-pointer disabled:cursor-not-allowed"
+                                  title="Đưa lên trên"
+                                >
+                                  <ArrowUp className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={index === wheelPrizes.length - 1}
+                                  onClick={() => handleMovePrize(index, "down")}
+                                  className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200 rounded-lg disabled:opacity-30 transition-colors cursor-pointer disabled:cursor-not-allowed"
+                                  title="Đưa xuống dưới"
+                                >
+                                  <ArrowDown className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleStartEditPrize(index)}
+                                  className="p-1.5 text-sky-600 hover:bg-sky-50 rounded-lg transition-colors cursor-pointer"
+                                  title="Chỉnh sửa tên phần thưởng"
+                                >
+                                  <Edit className="w-4 h-4" />
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={wheelPrizes.length <= 2}
+                                  onClick={() => handleDeletePrize(index)}
+                                  className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg disabled:opacity-30 transition-colors cursor-pointer disabled:cursor-not-allowed"
+                                  title="Xóa ô này"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* Star cost setting */}
+              <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
+                <h3 className="text-base font-bold text-slate-800 mb-2 flex items-center gap-2">
+                  <span>⭐</span> Chi phí sao cho mỗi lượt quay
+                </h3>
+                <p className="text-xs text-slate-500 mb-4">
+                  Học sinh tích lũy sao khi hoàn thành tốt các bài tập. Khi có đủ số sao quy định, học sinh có thể quay vòng quay may mắn.
+                </p>
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      min={1}
+                      max={50}
+                      value={spinCost}
+                      onChange={(e) => setSpinCost(Math.max(1, Number(e.target.value) || 1))}
+                      className="w-24 px-4 py-2 rounded-xl border border-slate-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none font-bold text-amber-500 text-lg text-center"
+                    />
+                    <span className="font-bold text-slate-700 text-sm">sao / 1 lượt quay</span>
+                  </div>
+                  <div className="flex gap-2">
+                    {[3, 5, 10].map((num) => (
+                      <button
+                        key={num}
+                        type="button"
+                        onClick={() => setSpinCost(num)}
+                        className={`text-xs px-3 py-1.5 rounded-xl border font-bold transition-colors cursor-pointer ${
+                          spinCost === num
+                            ? "bg-amber-500 text-white border-amber-500 shadow-xs"
+                            : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
+                        }`}
+                      >
+                        {num} sao {num === 5 ? "(mặc định)" : ""}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Right Column: Live Wheel Preview & Student Spin Notifications */}
+            <div className="lg:col-span-5 space-y-6">
+              {/* Wheel Preview Card */}
+              <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 text-center">
+                <div className="flex items-center justify-between mb-4 pb-2 border-b border-slate-100">
+                  <h3 className="font-bold text-slate-800 text-base flex items-center gap-2">
+                    <span>👀</span> Xem trước giao diện học sinh
+                  </h3>
+                  <span className="text-xs font-semibold text-slate-400">Trực quan thời gian thực</span>
+                </div>
+
+                <div className="my-4 flex justify-center">
+                  <LuckyWheel
+                    prizes={wheelPrizes}
+                    rotation={previewRotation}
+                    isSpinning={isPreviewSpinning}
+                    size={260}
+                  />
+                </div>
+
+                {previewWinner && !isPreviewSpinning && (
+                  <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-2xl animate-in zoom-in-95">
+                    <p className="text-xs text-amber-700 font-medium">Kết quả quay thử:</p>
+                    <p className="text-base font-black text-amber-900 mt-0.5">🎉 {previewWinner}</p>
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  onClick={handleTestSpin}
+                  disabled={isPreviewSpinning || wheelPrizes.length < 2}
+                  className="w-full bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 text-white font-black py-3 rounded-2xl shadow-md transition-all disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
+                >
+                  {isPreviewSpinning ? "Đang quay thử..." : "Quay thử nghiệm 🎲"}
+                </button>
+              </div>
+
+              {/* Student Spin Notifications Feed Card */}
+              <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
+                <div className="flex items-center justify-between mb-4 pb-2 border-b border-slate-100">
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-bold text-slate-800 text-base flex items-center gap-2">
+                      <Bell className="w-4 h-4 text-sky-500" /> Thông báo học sinh quay thưởng
+                    </h3>
+                  </div>
+                  {notifications.filter((n) => n.type === "wheel_prize").length > 0 && (
+                    <button
+                      onClick={() => markAllNotificationsAsRead()}
+                      className="text-xs text-sky-600 hover:underline font-semibold cursor-pointer"
+                    >
+                      Đã đọc hết
+                    </button>
+                  )}
+                </div>
+
+                <div className="space-y-3 max-h-[380px] overflow-y-auto pr-1">
+                  {notifications.filter((n) => n.type === "wheel_prize").length === 0 ? (
+                    <div className="py-8 text-center text-slate-400">
+                      <div className="w-12 h-12 bg-slate-50 text-slate-300 rounded-full flex items-center justify-center mx-auto mb-2">
+                        <span>🎡</span>
+                      </div>
+                      <p className="text-sm font-medium">Chưa có lượt quay thưởng nào</p>
+                      <p className="text-xs text-slate-400 mt-1">
+                        Khi học sinh dùng sao quay thưởng, thông báo và kết quả sẽ hiển thị ngay tại đây!
+                      </p>
+                    </div>
+                  ) : (
+                    notifications
+                      .filter((n) => n.type === "wheel_prize")
+                      .map((item) => (
+                        <div
+                          key={item.id}
+                          className={`p-3.5 rounded-2xl border transition-all flex items-start gap-3 ${
+                            !item.read
+                              ? "bg-amber-50/60 border-amber-200 shadow-xs"
+                              : "bg-slate-50 border-slate-100"
+                          }`}
+                        >
+                          <div className="w-9 h-9 rounded-full bg-amber-100 border border-amber-200 flex items-center justify-center font-bold text-amber-700 text-xs shrink-0 mt-0.5">
+                            {item.studentAvatar ? (
+                              <img
+                                src={item.studentAvatar}
+                                alt={item.studentName}
+                                className="w-full h-full rounded-full object-cover"
+                              />
+                            ) : (
+                              (item.studentName ? item.studentName.charAt(0) : "H").toUpperCase()
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-1">
+                              <p className="text-xs font-bold text-slate-800 truncate">
+                                {item.studentName || "Học sinh"}
+                              </p>
+                              <span className="text-[10px] text-slate-400 shrink-0">
+                                {item.createdAt ? new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ""}
+                              </span>
+                            </div>
+                            <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+                              <span className="text-[11px] text-slate-500">Quay được:</span>
+                              <span className="text-xs font-black text-rose-600 bg-rose-50 border border-rose-200 px-2.5 py-0.5 rounded-full">
+                                🎁 {item.prize}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {activeTab === "settings" && (
         <div className="space-y-6">
           <div className="flex justify-between items-center">
             <h2 className="text-2xl font-bold text-slate-800">Cài đặt</h2>
             <button onClick={() => setIsEditingSettings(!isEditingSettings)} className="bg-sky-500 text-white px-4 py-2 rounded-xl font-medium flex items-center gap-2 transition-colors">
               <Edit className="w-5 h-5" /> {isEditingSettings ? "Hủy" : "Chỉnh sửa"}
+            </button>
+          </div>
+
+          {/* Quick Lucky Wheel Card */}
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div>
+              <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                <span>🎡</span> Cấu hình Vòng quay may mắn
+              </h3>
+              <p className="text-sm text-slate-500 mt-1">
+                Hiện có <strong className="text-amber-600">{wheelPrizes.length} phần thưởng</strong> • Chi phí: <strong className="text-amber-600">{spinCost} sao / lượt</strong>.
+              </p>
+              <div className="flex flex-wrap gap-1.5 mt-3">
+                {wheelPrizes.map((p, i) => (
+                  <span key={i} className="text-xs bg-amber-50 text-amber-800 border border-amber-200 px-2.5 py-0.5 rounded-full font-medium">
+                    {p}
+                  </span>
+                ))}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setActiveTab("wheel")}
+              className="bg-amber-500 hover:bg-amber-600 text-white font-bold px-4 py-2 rounded-xl text-sm transition-colors shrink-0 shadow-sm flex items-center gap-1.5"
+            >
+              Chỉnh sửa vòng quay &rarr;
             </button>
           </div>
 
