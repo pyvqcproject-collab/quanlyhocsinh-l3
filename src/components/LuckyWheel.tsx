@@ -58,41 +58,64 @@ export default function LuckyWheel({ prizes, rotation, isSpinning = false, size 
                 <g transform={`rotate(${midAngle} 150 150)`}>
                   <text
                     x="150"
-                    y="45"
+                    y="60"
                     fill="#ffffff"
-                    fontSize="11"
+                    fontSize={count > 8 ? "9.5" : count > 6 ? "10.5" : "12"}
                     fontWeight="800"
                     textAnchor="middle"
-                    style={{ textShadow: "0 1px 3px rgba(0,0,0,0.6)" }}
+                    className="select-none font-sans drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]"
+                    transform="rotate(90 150 60)"
                   >
-                    {p.length > 14 ? p.substring(0, 13) + "…" : p}
+                    {p.length > 18 ? p.slice(0, 16) + "…" : p}
                   </text>
                 </g>
               </g>
             );
           })}
+
+          {/* Outer golden rim & bulbs */}
+          <circle cx="150" cy="150" r="140" fill="none" stroke="#fbbf24" strokeWidth="6" />
+          <circle cx="150" cy="150" r="143" fill="none" stroke="#d97706" strokeWidth="1.5" />
+
+          {/* Perimeter bulbs */}
+          {Array.from({ length: 16 }).map((_, bulbIdx) => {
+            const bulbAngle = ((bulbIdx * 360) / 16 - 90) * (Math.PI / 180);
+            const bx = cx + 140 * Math.cos(bulbAngle);
+            const by = cy + 140 * Math.sin(bulbAngle);
+            return (
+              <circle
+                key={bulbIdx}
+                cx={bx}
+                cy={by}
+                r="3.5"
+                fill={bulbIdx % 2 === 0 ? "#ffffff" : "#fef08a"}
+                stroke="#b45309"
+                strokeWidth="1"
+              />
+            );
+          })}
+
+          {/* Center Hub */}
+          <circle cx="150" cy="150" r="26" fill="#ffffff" stroke="#f59e0b" strokeWidth="4" />
+          <circle cx="150" cy="150" r="20" fill="#fbbf24" />
         </g>
 
-        {/* Viền ngoài trang trí */}
-        <circle cx={cx} cy={cy} r={r} fill="none" stroke="#fbbf24" strokeWidth="6" opacity="0.9" />
+        {/* Center Star */}
+        <g transform="translate(138, 138) scale(1)">
+          <path
+            d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+            fill="#ffffff"
+            stroke="#b45309"
+            strokeWidth="0.5"
+          />
+        </g>
 
-        {/* Trục tâm của vòng quay */}
-        <circle cx={cx} cy={cy} r="26" fill="#ffffff" stroke="#f59e0b" strokeWidth="4" />
-        <circle cx={cx} cy={cy} r="14" fill="#f59e0b" />
-        <circle cx={cx} cy={cy} r="6" fill="#ffffff" />
+        {/* Top Pointer */}
+        <g className="filter drop-shadow-[0_4px_6px_rgba(0,0,0,0.4)]">
+          <polygon points="136,2 164,2 150,30" fill="#e11d48" stroke="#ffffff" strokeWidth="2.5" />
+          <circle cx="150" cy="6" r="4.5" fill="#fecdd3" stroke="#e11d48" strokeWidth="1" />
+        </g>
       </svg>
-
-      {/* Mũi tên chỉ phần thưởng ở vị trí 12h */}
-      <div
-        className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1 z-20 pointer-events-none drop-shadow-md"
-        style={{
-          width: 0,
-          height: 0,
-          borderLeft: "14px solid transparent",
-          borderRight: "14px solid transparent",
-          borderTop: "24px solid #ef4444"
-        }}
-      />
     </div>
   );
 }
