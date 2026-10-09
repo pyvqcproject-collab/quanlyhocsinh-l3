@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { Paperclip, Image as ImageIcon, Link as LinkIcon, X, Upload } from 'lucide-react';
+import { compressImageFile } from '../utils/imageCompressor';
 
 export type Attachment = {
   type: 'image' | 'file' | 'link';
@@ -18,11 +19,13 @@ export default function AttachmentManager({ attachments, onChange, label = "Đí
   const [showLinkInput, setShowLinkInput] = useState(false);
   const [linkUrl, setLinkUrl] = useState("");
   const [linkName, setLinkName] = useState("");
+  const [isCompressing, setIsCompressing] = useState(false);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
     
+    setIsCompressing(true);
     const newAttachments: Attachment[] = [];
     
     for (let i = 0; i < files.length; i++) {
@@ -32,52 +35,13 @@ export default function AttachmentManager({ attachments, onChange, label = "Đí
         let dataUrl = "";
 
         if (type === 'image') {
-          dataUrl = await new Promise<string>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = (evt) => {
-              if (evt.target?.result) {
-                const img = new Image();
-                img.onload = () => {
-                  const canvas = document.createElement('canvas');
-                  let width = img.width;
-                  let height = img.height;
-                  
-                  // Max dimensions
-                  const MAX_WIDTH = 1200;
-                  const MAX_HEIGHT = 1200;
-
-                  if (width > height) {
-                    if (width > MAX_WIDTH) {
-                      height *= MAX_WIDTH / width;
-                      width = MAX_WIDTH;
-                    }
-                  } else {
-                    if (height > MAX_HEIGHT) {
-                      width *= MAX_HEIGHT / height;
-                      height = MAX_HEIGHT;
-                    }
-                  }
-
-                  canvas.width = width;
-                  canvas.height = height;
-                  const ctx = canvas.getContext('2d');
-                  if (ctx) {
-                    ctx.drawImage(img, 0, 0, width, height);
-                    // Compress to JPEG with 0.8 quality
-                    resolve(canvas.toDataURL('image/jpeg', 0.8));
-                  } else {
-                    resolve(evt.target!.result as string);
-                  }
-                };
-                img.onerror = () => reject(new Error("Image load error"));
-                img.src = evt.target.result as string;
-              } else {
-                reject(new Error("No result"));
-              }
-            };
-            reader.onerror = () => reject(reader.error);
-            reader.readAsDataURL(file);
+          // Nén ảnh thông minh tự động giảm dung lượng nhưng vẫn giữ độ nét cao cho chữ viết tay
+          const compressed = await compressImageFile(file, {
+            maxWidth: 1400,
+            maxHeight: 1400,
+            quality: 0.85
           });
+          dataUrl = compressed.dataUrl;
         } else {
           dataUrl = await new Promise<string>((resolve, reject) => {
             const reader = new FileReader();
@@ -99,6 +63,7 @@ export default function AttachmentManager({ attachments, onChange, label = "Đí
       }
     }
     
+    setIsCompressing(false);
     onChange([...attachments, ...newAttachments]);
     
     if (fileInputRef.current) {
@@ -131,18 +96,24 @@ export default function AttachmentManager({ attachments, onChange, label = "Đí
           <button 
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="flex items-center gap-2 px-4 py-2 bg-sky-50 hover:bg-sky-100 text-sky-600 rounded-xl font-medium transition-colors border border-sky-100"
+            disabled={isCompressing}
+            className="flex items-center gap-2 px-4 py-2 bg-sky-50 hover:bg-sky-100 text-sky-600 rounded-xl font-bold transition-all border border-sky-100 active:scale-95 disabled:opacity-50 cursor-pointer"
           >
-            <Upload className="w-4 h-4" /> Tải file/ảnh
+            <Upload className="w-4 h-4" /> {isCompressing ? "Đang xử lý & tối ưu ảnh..." : "Tải file/ảnh"}
           </button>
           <button 
             type="button"
             onClick={() => setShowLinkInput(!showLinkInput)}
-            className="flex items-center gap-2 px-4 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 rounded-xl font-medium transition-colors border border-emerald-100"
+            className="flex items-center gap-2 px-4 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 rounded-xl font-bold transition-all border border-emerald-100 active:scale-95 cursor-pointer"
           >
             <LinkIcon className="w-4 h-4" /> Thêm link
           </button>
         </div>
+        {isCompressing && (
+          <p className="text-xs text-sky-600 font-semibold animate-pulse mt-1">
+            Đang tự động nén nhẹ dung lượng và giữ nét chữ viết tay...
+          </p>
+        )}
         <input 
           type="file" 
           multiple 
