@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
-import { subscribeToAssignments, subscribeToSubmissions, subscribeToBadges, subscribeToPosts } from "../firebase/db";
+import { subscribeToAssignments, subscribeToSubmissions, subscribeToBadges, subscribeToPosts, subscribeToAttendance, subscribeToEvaluations, subscribeToAppSettings, AttendanceRecord, EvaluationRecord } from "../firebase/db";
 import { useAuth } from "../context/AuthContext";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { CheckCircle, Trophy, TrendingUp, AlertCircle, Image as ImageIcon, Paperclip } from "lucide-react";
+import { CheckCircle, Trophy, TrendingUp, AlertCircle, Image as ImageIcon, Paperclip, UserCheck, Sparkles, FileSpreadsheet, Download, Calendar, Award } from "lucide-react";
+import { exportStudentToExcel } from "../utils/studentExcelExporter";
 
 export default function ParentDashboard() {
   const { user } = useAuth();
@@ -10,8 +11,11 @@ export default function ParentDashboard() {
   const [submissions, setSubmissions] = useState<any[]>([]);
   const [badges, setBadges] = useState<any[]>([]);
   const [posts, setPosts] = useState<any[]>([]);
+  const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
+  const [evaluations, setEvaluations] = useState<EvaluationRecord[]>([]);
+  const [appSettings, setAppSettings] = useState<any>({});
   const [analysis, setAnalysis] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState("progress");
+  const [activeTab, setActiveTab] = useState<"progress" | "attendance" | "posts">("progress");
 
   useEffect(() => {
     if (user?.studentId) {
@@ -19,6 +23,13 @@ export default function ParentDashboard() {
       const unsubSubmissions = subscribeToSubmissions(setSubmissions, undefined, user.studentId);
       const unsubBadges = subscribeToBadges(setBadges, user.studentId);
       const unsubPosts = subscribeToPosts(setPosts);
+      const unsubAttendance = subscribeToAttendance((records) => {
+        setAttendance(records.filter(r => r.studentId === user.studentId));
+      });
+      const unsubEvaluations = subscribeToEvaluations((records) => {
+        setEvaluations(records);
+      }, user.studentId);
+      const unsubSettings = subscribeToAppSettings(setAppSettings);
 
       // Mock AI Analysis
       setAnalysis({
@@ -32,6 +43,9 @@ export default function ParentDashboard() {
         unsubSubmissions();
         unsubBadges();
         unsubPosts();
+        unsubAttendance();
+        unsubEvaluations();
+        unsubSettings();
       };
     }
   }, [user]);
@@ -43,12 +57,157 @@ export default function ParentDashboard() {
     { name: 'Tuần 4', score: 9.0 },
   ];
 
+  const handleExportChildExcel = () => {
+    if (!user) return;
+    const studentObj = {
+      id: user.studentId,
+      name: user.name?.replace('Phụ huynh ', '') || user.studentId,
+      gender: "",
+      birthdate: ""
+    };
+    exportStudentToExcel({
+      student: studentObj,
+      attendanceList: attendance,
+      assignmentsList: assignments,
+      submissionsList: submissions,
+      evaluationsList: evaluations,
+      badgesList: badges,
+      appSettings
+    });
+  };
+
+  const attendanceTotal = attendance.length;
+  const attendancePresent = attendance.filter(a => a.status === 'present').length;
+  const attendanceExcused = attendance.filter(a => a.status === 'excused').length;
+  const attendanceUnexcused = attendance.filter(a => a.status === 'unexcused').length;
+  const attendanceLate = attendance.filter(a => a.status === 'late').length;
+  const attendanceRate = attendanceTotal > 0 ? Math.round((attendancePresent / attendanceTotal) * 100) : 100;
+
   return (
     <div className="space-y-6">
-      <div className="flex gap-4 border-b border-slate-200 pb-2 overflow-x-auto">
-        <button onClick={() => setActiveTab("progress")} className={`px-4 py-2 font-medium rounded-t-lg whitespace-nowrap ${activeTab === "progress" ? "text-emerald-600 border-b-2 border-emerald-600" : "text-slate-500 hover:text-slate-700"}`}>Kết quả học tập</button>
-        <button onClick={() => setActiveTab("posts")} className={`px-4 py-2 font-medium rounded-t-lg whitespace-nowrap ${activeTab === "posts" ? "text-emerald-600 border-b-2 border-emerald-600" : "text-slate-500 hover:text-slate-700"}`}>Bảng tin</button>
+      <div className="flex gap-4 border-b border-slate-200 pb-2 overflow-x-auto justify-between items-center">
+        <div className="flex gap-2">
+          <button onClick={() => setActiveTab("progress")} className={`px-4 py-2 font-medium rounded-t-lg whitespace-nowrap cursor-pointer ${activeTab === "progress" ? "text-emerald-600 border-b-2 border-emerald-600 font-bold" : "text-slate-500 hover:text-slate-700"}`}>Kết quả học tập</button>
+          <button onClick={() => setActiveTab("attendance")} className={`px-4 py-2 font-medium rounded-t-lg whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${activeTab === "attendance" ? "text-emerald-600 border-b-2 border-emerald-600 font-bold" : "text-slate-500 hover:text-slate-700"}`}><UserCheck className="w-4 h-4" /> Điểm danh & Nhận xét</button>
+          <button onClick={() => setActiveTab("posts")} className={`px-4 py-2 font-medium rounded-t-lg whitespace-nowrap cursor-pointer ${activeTab === "posts" ? "text-emerald-600 border-b-2 border-emerald-600 font-bold" : "text-slate-500 hover:text-slate-700"}`}>Bảng tin</button>
+        </div>
+
+        <button
+          onClick={handleExportChildExcel}
+          className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold text-xs border border-emerald-200 transition-all cursor-pointer active:scale-95"
+        >
+          <FileSpreadsheet className="w-4 h-4" /> Xuất Excel của con
+        </button>
       </div>
+
+      {activeTab === "attendance" && (
+        <div className="space-y-6">
+          <div className="flex justify-between items-center">
+            <h2 className="text-2xl font-bold text-slate-800">Chuyên cần & Nhận xét của {user?.name?.replace('Phụ huynh ', '')}</h2>
+            <button
+              onClick={handleExportChildExcel}
+              className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold shadow-md hover:bg-emerald-700 transition-all"
+            >
+              <Download className="w-4 h-4" /> Tải báo cáo Excel
+            </button>
+          </div>
+
+          {/* Attendance Stats Cards */}
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+            <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm text-center">
+              <span className="text-xs text-slate-400 font-bold block">Tỷ lệ chuyên cần</span>
+              <span className="text-2xl font-extrabold text-emerald-600">{attendanceRate}%</span>
+            </div>
+            <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm text-center">
+              <span className="text-xs text-slate-400 font-bold block">Có mặt</span>
+              <span className="text-2xl font-extrabold text-emerald-700">{attendancePresent} buổi</span>
+            </div>
+            <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm text-center">
+              <span className="text-xs text-slate-400 font-bold block">Vắng có phép</span>
+              <span className="text-2xl font-extrabold text-amber-600">{attendanceExcused}</span>
+            </div>
+            <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm text-center">
+              <span className="text-xs text-slate-400 font-bold block">Không phép</span>
+              <span className="text-2xl font-extrabold text-rose-600">{attendanceUnexcused}</span>
+            </div>
+            <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm text-center">
+              <span className="text-xs text-slate-400 font-bold block">Đi muộn</span>
+              <span className="text-2xl font-extrabold text-orange-600">{attendanceLate}</span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Evaluations from Teacher */}
+            <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-4">
+              <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-indigo-500" /> Nhận xét & Đánh giá định kỳ của giáo viên
+              </h3>
+
+              {evaluations.length === 0 ? (
+                <div className="py-8 text-center text-slate-400 text-xs">
+                  Chưa có nhận xét định kỳ nào từ giáo viên.
+                </div>
+              ) : (
+                <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
+                  {evaluations.map((ev, i) => (
+                    <div key={i} className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-2">
+                      <div className="flex justify-between items-center">
+                        <span className="font-extrabold text-sm text-slate-800">{ev.periodLabel}</span>
+                        <span className="px-2.5 py-1 rounded-xl bg-emerald-100 text-emerald-800 font-extrabold text-xs">
+                          🌟 {ev.overallRating}
+                        </span>
+                      </div>
+                      <p className="text-xs font-semibold text-slate-700 bg-white p-3 rounded-xl border border-slate-100">
+                        "{ev.comment}"
+                      </p>
+                      <div className="flex flex-wrap gap-2 text-[11px] text-slate-500 pt-1 font-medium">
+                        <span>Ý thức: <strong>{ev.academicEffort}</strong></span>
+                        <span>·</span>
+                        <span>Nề nếp: <strong>{ev.discipline}</strong></span>
+                        <span>·</span>
+                        <span>Đoàn kết: <strong>{ev.teamwork}</strong></span>
+                      </div>
+                      <p className="text-[10px] text-slate-400 text-right">Giáo viên: {ev.teacherName || "Cô giáo"}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Attendance Logs */}
+            <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-4">
+              <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2">
+                <Calendar className="w-5 h-5 text-emerald-500" /> Lịch sử điểm danh chi tiết
+              </h3>
+
+              {attendance.length === 0 ? (
+                <div className="py-8 text-center text-slate-400 text-xs">
+                  Chưa có lịch sử điểm danh.
+                </div>
+              ) : (
+                <div className="max-h-96 overflow-y-auto rounded-2xl border border-slate-100 divide-y divide-slate-100">
+                  {attendance.sort((a, b) => b.date.localeCompare(a.date)).map((att, i) => (
+                    <div key={i} className="p-3 flex items-center justify-between text-xs hover:bg-slate-50">
+                      <div>
+                        <span className="font-bold text-slate-800">{att.date}</span>
+                        {att.note && <span className="text-slate-400 ml-2 italic">({att.note})</span>}
+                      </div>
+                      <span className={`px-2.5 py-1 rounded-xl font-bold text-[10px] ${
+                        att.status === 'present' ? 'bg-emerald-100 text-emerald-800' :
+                        att.status === 'excused' ? 'bg-amber-100 text-amber-800' :
+                        att.status === 'late' ? 'bg-orange-100 text-orange-800' :
+                        'bg-rose-100 text-rose-800'
+                      }`}>
+                        {att.status === 'present' ? 'Có mặt' : att.status === 'excused' ? 'Có phép' : att.status === 'late' ? 'Đi muộn' : 'Vắng không phép'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {activeTab === "progress" && (
         <div className="space-y-6">
