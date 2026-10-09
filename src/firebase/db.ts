@@ -1,10 +1,30 @@
 import { db, isMockMode } from "./config";
 import { collection, doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc, query, where, orderBy, onSnapshot } from "firebase/firestore";
 
+// Default prizes for the lucky wheel
+export const DEFAULT_WHEEL_PRIZES = [
+  "10 điểm thưởng",
+  "Huy hiệu Chăm chỉ",
+  "Huy hiệu Thông thái",
+  "Tràng pháo tay",
+  "Thêm 1 lượt quay",
+  "Chúc may mắn lần sau"
+];
+
 // Mock Data Store
 const loadMockData = () => {
   const saved = localStorage.getItem('mockData');
-  if (saved) return JSON.parse(saved);
+  if (saved) {
+    const parsed = JSON.parse(saved);
+    if (!parsed.notifications) parsed.notifications = [];
+    if (!parsed.attendance) parsed.attendance = [];
+    if (!parsed.evaluations) parsed.evaluations = [];
+    if (!parsed.appSettings) parsed.appSettings = {};
+    if (!parsed.appSettings.wheelPrizes || !parsed.appSettings.wheelPrizes.length) {
+      parsed.appSettings.wheelPrizes = [...DEFAULT_WHEEL_PRIZES];
+    }
+    return parsed;
+  }
   return {
     users: [
       { id: "teacher-1", email: "teacher@school.com", role: "teacher", name: "Cô Lan", password: "123456", isAdmin: true }
@@ -13,12 +33,17 @@ const loadMockData = () => {
     submissions: [],
     badges: [],
     posts: [],
+    notifications: [],
+    attendance: [],
+    evaluations: [],
     appSettings: {
       teacherName: "Cô Lan",
       schoolName: "Trường Tiểu học ABC",
       className: "Lớp 3A",
       avatarUrl: "",
-      appName: "Ứng dụng Quản lý Lớp học"
+      appName: "Ứng dụng Quản lý Lớp học",
+      wheelPrizes: [...DEFAULT_WHEEL_PRIZES],
+      spinCost: 5
     }
   };
 };
@@ -208,14 +233,16 @@ export const getBadges = async (studentId: string) => {
   return snapshot.docs.map(d => Object.assign({ id: d.id }, d.data()));
 };
 
-export const subscribeToBadges = (callback: (data: any[]) => void, studentId: string) => {
+export const subscribeToBadges = (callback: (data: any[]) => void, studentId?: string) => {
   if (isMockMode) {
-    const getFiltered = () => mockData.badges.filter(b => b.studentId === studentId);
+    const getFiltered = () => studentId ? mockData.badges.filter(b => b.studentId === studentId) : [...(mockData.badges || [])];
     callback(getFiltered());
     return subscribeToMockData(() => callback(getFiltered()));
   }
-  const q = query(collection(db, "badges"), where("studentId", "==", studentId));
-  return onSnapshot(q, (snapshot) => {
+  const q = studentId 
+    ? query(collection(db, "badges"), where("studentId", "==", studentId))
+    : collection(db, "badges");
+  return onSnapshot(q as any, (snapshot) => {
     callback(snapshot.docs.map(d => Object.assign({ id: d.id }, d.data())));
   });
 };
@@ -440,6 +467,9 @@ export const resetApp = async () => {
     mockData.submissions = [];
     mockData.badges = [];
     mockData.posts = [];
+    mockData.notifications = [];
+    mockData.attendance = [];
+    mockData.evaluations = [];
     // Reset spinsUsed for all students
     mockData.users.forEach(u => {
       if (u.role === "student") {
@@ -449,7 +479,7 @@ export const resetApp = async () => {
     saveMockData();
     return;
   }
-  const collections = ["assignments", "submissions", "badges", "posts"];
+  const collections = ["assignments", "submissions", "badges", "posts", "notifications", "attendance", "evaluations"];
   for (const collName of collections) {
     const snapshot = await getDocs(collection(db, collName));
     const deletePromises = snapshot.docs.map(d => deleteDoc(d.ref));
@@ -537,3 +567,279 @@ export const updateAppSettings = async (data: any) => {
   await setDoc(doc(db, "settings", "app"), data, { merge: true });
   return data;
 };
+
+export const createNotification = async (data: any) => {
+  const payload = {
+    ...data,
+    read: false,
+    createdAt: new Date().toISOString()
+  };
+  if (isMockMode) {
+    const newNotif = { id: generateId(), ...payload };
+    if (!mockData.notifications) mockData.notifications = [];
+    mockData.notifications.unshift(newNotif);
+    saveMockData();
+    return newNotif;
+  }
+  const docRef = await addDoc(collection(db, "notifications"), payload);
+  return { id: docRef.id, ...payload };
+};
+
+export const subscribeToNotifications = (callback: (data: any[]) => void) => {
+  if (isMockMode) {
+    const getList = () => [...(mockData.notifications || [])];
+    callback(getList());
+    return subscribeToMockData(() => callback(getList()));
+  }
+  const q = query(collection(db, "notifications"), orderBy("createdAt", "desc"));
+  return onSnapshot(q, (snapshot) => {
+    callback(snapshot.docs.map(d => Object.assign({ id: d.id }, d.data())));
+  }, (err) => {
+    console.error("Notifications snapshot error, falling back:", err);
+    getDocs(collection(db, "notifications")).then(snap => {
+      const list = snap.docs.map(d => Object.assign({ id: d.id }, d.data()));
+      list.sort((a: any, b: any) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+      callback(list);
+    }).catch(e => console.error("Notification fallback fetch error:", e));
+  });
+};
+
+export const markNotificationAsRead = async (id: string) => {
+  if (isMockMode) {
+    const notif = mockData.notifications?.find(n => n.id === id);
+    if (notif) {
+      notif.read = true;
+      saveMockData();
+    }
+    return;
+  }
+  await updateDoc(doc(db, "notifications", id), { read: true });
+};
+
+export const markAllNotificationsAsRead = async () => {
+  if (isMockMode) {
+    mockData.notifications?.forEach(n => { n.read = true; });
+    saveMockData();
+    return;
+  }
+  const q = query(collection(db, "notifications"), where("read", "==", false));
+  const snapshot = await getDocs(q);
+  const promises = snapshot.docs.map(d => updateDoc(d.ref, { read: true }));
+  await Promise.all(promises);
+};
+
+export const deleteNotification = async (id: string) => {
+  if (isMockMode) {
+    if (mockData.notifications) {
+      mockData.notifications = mockData.notifications.filter(n => n.id !== id);
+      saveMockData();
+    }
+    return;
+  }
+  await deleteDoc(doc(db, "notifications", id));
+};
+
+export const clearAllNotifications = async () => {
+  if (isMockMode) {
+    mockData.notifications = [];
+    saveMockData();
+    return;
+  }
+  const snapshot = await getDocs(collection(db, "notifications"));
+  const promises = snapshot.docs.map(d => deleteDoc(d.ref));
+  await Promise.all(promises);
+};
+
+// ==================== ATTENDANCE (ĐIỂM DANH HÀNG NGÀY) ====================
+
+export interface AttendanceRecord {
+  id?: string;
+  date: string; // YYYY-MM-DD
+  studentId: string;
+  status: 'present' | 'excused' | 'unexcused' | 'late'; // Có mặt, Vắng có phép, Vắng không phép, Đi muộn
+  note?: string;
+  updatedAt: string;
+  teacherName?: string;
+}
+
+export const saveAttendanceBatch = async (
+  date: string,
+  records: Array<{ studentId: string; status: 'present' | 'excused' | 'unexcused' | 'late'; note?: string }>,
+  teacherName: string = "Giáo viên"
+) => {
+  const timestamp = new Date().toISOString();
+
+  if (isMockMode) {
+    if (!mockData.attendance) mockData.attendance = [];
+    records.forEach(r => {
+      const existingIdx = mockData.attendance.findIndex(
+        (a: any) => a.date === date && a.studentId === r.studentId
+      );
+      const recordData: AttendanceRecord = {
+        id: `${date}_${r.studentId}`,
+        date,
+        studentId: r.studentId,
+        status: r.status,
+        note: r.note || "",
+        updatedAt: timestamp,
+        teacherName
+      };
+
+      if (existingIdx >= 0) {
+        mockData.attendance[existingIdx] = recordData;
+      } else {
+        mockData.attendance.push(recordData);
+      }
+    });
+    saveMockData();
+    return mockData.attendance.filter((a: any) => a.date === date);
+  }
+
+  // Real Firestore: save each student's attendance with doc ID `${date}_${studentId}`
+  const promises = records.map(async (r) => {
+    const docId = `${date}_${r.studentId}`;
+    const recordData: AttendanceRecord = {
+      date,
+      studentId: r.studentId,
+      status: r.status,
+      note: r.note || "",
+      updatedAt: timestamp,
+      teacherName
+    };
+    await setDoc(doc(db, "attendance", docId), recordData, { merge: true });
+    return { id: docId, ...recordData };
+  });
+
+  return await Promise.all(promises);
+};
+
+export const subscribeToAttendance = (callback: (data: AttendanceRecord[]) => void) => {
+  if (isMockMode) {
+    const getList = () => [...(mockData.attendance || [])];
+    callback(getList());
+    return subscribeToMockData(() => callback(getList()));
+  }
+
+  return onSnapshot(collection(db, "attendance"), (snapshot) => {
+    callback(snapshot.docs.map(d => Object.assign({ id: d.id }, d.data()) as AttendanceRecord));
+  }, (err) => {
+    console.error("Attendance listener error:", err);
+    getDocs(collection(db, "attendance")).then(snap => {
+      callback(snap.docs.map(d => Object.assign({ id: d.id }, d.data()) as AttendanceRecord));
+    }).catch(e => console.error("Attendance fallback error:", e));
+  });
+};
+
+export const subscribeToAttendanceByDate = (date: string, callback: (data: AttendanceRecord[]) => void) => {
+  if (isMockMode) {
+    const getFiltered = () => (mockData.attendance || []).filter((a: any) => a.date === date);
+    callback(getFiltered());
+    return subscribeToMockData(() => callback(getFiltered()));
+  }
+
+  const q = query(collection(db, "attendance"), where("date", "==", date));
+  return onSnapshot(q, (snapshot) => {
+    callback(snapshot.docs.map(d => Object.assign({ id: d.id }, d.data()) as AttendanceRecord));
+  }, (err) => {
+    console.error("Attendance date listener error:", err);
+    getDocs(q).then(snap => {
+      callback(snap.docs.map(d => Object.assign({ id: d.id }, d.data()) as AttendanceRecord));
+    }).catch(e => console.error("Attendance date fallback error:", e));
+  });
+};
+
+// ==================== EVALUATIONS (ĐÁNH GIÁ ĐỊNH KỲ) ====================
+
+export interface EvaluationRecord {
+  id?: string;
+  studentId: string;
+  studentName?: string;
+  period: 'daily' | 'weekly' | 'monthly'; // Cuối ngày, Cuối tuần, Cuối tháng
+  date: string; // YYYY-MM-DD or YYYY-MM or YYYY-Www
+  periodLabel: string; // "Ngày 06/10/2026", "Tuần 1 - Tháng 10/2026", "Tháng 10/2026"
+  overallRating: 'Tốt' | 'Đạt' | 'Cần cố gắng';
+  academicEffort: string; // Ý thức học tập
+  discipline: string; // Kỷ luật & nề nếp
+  teamwork: string; // Đoàn kết & giúp đỡ bạn bè
+  comment: string; // Nhận xét của giáo viên
+  teacherName: string;
+  createdAt: string;
+}
+
+export const saveEvaluation = async (data: Omit<EvaluationRecord, 'id' | 'createdAt'> & { id?: string }) => {
+  const timestamp = new Date().toISOString();
+  const payload = {
+    ...data,
+    createdAt: timestamp
+  };
+
+  if (isMockMode) {
+    if (!mockData.evaluations) mockData.evaluations = [];
+    if (data.id) {
+      const idx = mockData.evaluations.findIndex((e: any) => e.id === data.id);
+      if (idx >= 0) {
+        mockData.evaluations[idx] = { ...mockData.evaluations[idx], ...payload };
+        saveMockData();
+        return mockData.evaluations[idx];
+      }
+    }
+    const newEval = { id: generateId(), ...payload };
+    mockData.evaluations.unshift(newEval);
+    saveMockData();
+    return newEval;
+  }
+
+  if (data.id) {
+    await updateDoc(doc(db, "evaluations", data.id), payload);
+    return { id: data.id, ...payload };
+  } else {
+    const docRef = await addDoc(collection(db, "evaluations"), payload);
+    return { id: docRef.id, ...payload };
+  }
+};
+
+export const deleteEvaluation = async (id: string) => {
+  if (isMockMode) {
+    if (mockData.evaluations) {
+      mockData.evaluations = mockData.evaluations.filter((e: any) => e.id !== id);
+      saveMockData();
+    }
+    return;
+  }
+  await deleteDoc(doc(db, "evaluations", id));
+};
+
+export const subscribeToEvaluations = (
+  callback: (data: EvaluationRecord[]) => void,
+  studentId?: string
+) => {
+  if (isMockMode) {
+    const getList = () => {
+      let list = [...(mockData.evaluations || [])];
+      if (studentId) list = list.filter((e: any) => e.studentId === studentId);
+      return list;
+    };
+    callback(getList());
+    return subscribeToMockData(() => callback(getList()));
+  }
+
+  let q = collection(db, "evaluations") as any;
+  if (studentId) {
+    q = query(q, where("studentId", "==", studentId));
+  }
+
+  return onSnapshot(q, (snapshot: any) => {
+    const list = snapshot.docs.map((d: any) => Object.assign({ id: d.id }, d.data()) as EvaluationRecord);
+    list.sort((a: any, b: any) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+    callback(list);
+  }, (err: any) => {
+    console.error("Evaluations listener error:", err);
+    getDocs(q).then((snap: any) => {
+      const list = snap.docs.map((d: any) => Object.assign({ id: d.id }, d.data()) as EvaluationRecord);
+      list.sort((a: any, b: any) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+      callback(list);
+    }).catch((e: any) => console.error("Evaluations fallback error:", e));
+  });
+};
+
+
