@@ -150,59 +150,127 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 md:bg-sky-50 flex flex-col md:items-center md:justify-center md:p-4">
-      <div className="bg-white md:rounded-3xl md:shadow-xl w-full max-w-md mx-auto overflow-hidden flex-1 flex flex-col md:flex-none md:min-h-0">
-        <div className="bg-sky-500 p-8 pt-12 md:pt-8 text-center text-white rounded-b-[2.5rem] md:rounded-none shadow-lg md:shadow-none relative z-10">
-          <BookOpen className="w-16 h-16 mx-auto mb-4" />
-          <h1 className="text-3xl font-bold">Lớp Học Đảo Ngược</h1>
-          <p className="text-sky-100 mt-2">Học tập thông minh, vui vẻ mỗi ngày!</p>
+    <div className="min-h-screen bg-slate-100/70 sm:bg-slate-50 flex flex-col justify-center sm:items-center p-0 sm:p-6">
+      {/* Android Material Container */}
+      <div className="bg-white sm:rounded-[2.5rem] sm:shadow-2xl sm:shadow-slate-300/40 border-0 sm:border border-slate-200/80 w-full max-w-md mx-auto overflow-hidden flex-1 sm:flex-none flex flex-col">
+        {/* Top Hero Splash */}
+        <div className="bg-gradient-to-br from-sky-500 via-blue-600 to-indigo-600 p-8 sm:p-10 text-center text-white relative overflow-hidden">
+          <div className="absolute -right-8 -top-8 w-40 h-40 bg-white/10 rounded-full blur-xl pointer-events-none" />
+          <div className="absolute -left-8 -bottom-8 w-40 h-40 bg-amber-400/20 rounded-full blur-xl pointer-events-none" />
+
+          <div className="relative z-10">
+            <div className="w-16 h-16 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-lg border border-white/30 text-white">
+              <BookOpen className="w-9 h-9" />
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">Lớp Học Đảo Ngược</h1>
+            <p className="text-sky-100 text-xs sm:text-sm font-semibold mt-1">
+              Học tập thông minh, tiến bộ mỗi ngày! 🌟
+            </p>
+          </div>
         </div>
-        
-        <div className="p-6 md:p-8 flex-1 flex flex-col justify-center -mt-6 md:mt-0 pt-10 md:pt-8 bg-gray-50 md:bg-white">
-          <div className="bg-white md:bg-transparent p-6 md:p-0 rounded-3xl md:rounded-none shadow-sm md:shadow-none border border-gray-100 md:border-none mb-6 md:mb-0">
-            <div className="flex justify-between md:justify-center gap-2 sm:gap-4 mb-8">
-              <button type="button" onClick={() => setDemoUser("student")} className={`flex flex-col items-center p-2 sm:p-3 rounded-2xl border-2 transition-all flex-1 md:w-24 md:flex-none ${role === "student" ? "border-sky-500 bg-sky-50 text-sky-600 ring-4 ring-sky-500/20" : "border-gray-100 text-gray-400 hover:border-sky-200 bg-gray-50 md:bg-white"}`}>
-                <User className="w-7 h-7 sm:w-8 sm:h-8 mb-1.5" />
-                <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider">Học sinh</span>
+
+        {/* Content Area */}
+        <div className="p-6 sm:p-8 flex-1 flex flex-col justify-center bg-white">
+          {/* Material 3 Segmented Role Switcher */}
+          <div className="space-y-2 mb-6">
+            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider text-center">
+              Chọn vai trò đăng nhập
+            </label>
+            <div className="grid grid-cols-3 gap-2 p-1.5 bg-slate-100 rounded-2xl">
+              <button
+                type="button"
+                onClick={() => setDemoUser("student")}
+                className={`flex flex-col items-center py-2.5 px-2 rounded-xl font-bold transition-all cursor-pointer ${
+                  role === "student"
+                    ? "bg-white text-sky-600 shadow-sm"
+                    : "text-slate-500 hover:text-slate-800"
+                }`}
+              >
+                <User className="w-5 h-5 mb-1" />
+                <span className="text-xs">Học sinh</span>
               </button>
-              <button type="button" onClick={() => setDemoUser("teacher")} className={`flex flex-col items-center p-2 sm:p-3 rounded-2xl border-2 transition-all flex-1 md:w-24 md:flex-none ${role === "teacher" ? "border-amber-500 bg-amber-50 text-amber-600 ring-4 ring-amber-500/20" : "border-gray-100 text-gray-400 hover:border-amber-200 bg-gray-50 md:bg-white"}`}>
-                <GraduationCap className="w-7 h-7 sm:w-8 sm:h-8 mb-1.5" />
-                <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider">Giáo viên</span>
+
+              <button
+                type="button"
+                onClick={() => setDemoUser("teacher")}
+                className={`flex flex-col items-center py-2.5 px-2 rounded-xl font-bold transition-all cursor-pointer ${
+                  role === "teacher"
+                    ? "bg-white text-amber-600 shadow-sm"
+                    : "text-slate-500 hover:text-slate-800"
+                }`}
+              >
+                <GraduationCap className="w-5 h-5 mb-1" />
+                <span className="text-xs">Giáo viên</span>
               </button>
-              <button type="button" onClick={() => setDemoUser("parent")} className={`flex flex-col items-center p-2 sm:p-3 rounded-2xl border-2 transition-all flex-1 md:w-24 md:flex-none ${role === "parent" ? "border-emerald-500 bg-emerald-50 text-emerald-600 ring-4 ring-emerald-500/20" : "border-gray-100 text-gray-400 hover:border-emerald-200 bg-gray-50 md:bg-white"}`}>
-                <Users className="w-7 h-7 sm:w-8 sm:h-8 mb-1.5" />
-                <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider">Phụ huynh</span>
+
+              <button
+                type="button"
+                onClick={() => setDemoUser("parent")}
+                className={`flex flex-col items-center py-2.5 px-2 rounded-xl font-bold transition-all cursor-pointer ${
+                  role === "parent"
+                    ? "bg-white text-emerald-600 shadow-sm"
+                    : "text-slate-500 hover:text-slate-800"
+                }`}
+              >
+                <Users className="w-5 h-5 mb-1" />
+                <span className="text-xs">Phụ huynh</span>
               </button>
             </div>
+          </div>
 
-            <div className="mb-6 text-center">
-              <p className="text-sm font-medium text-gray-500">
-                Đăng nhập với tư cách: <span className={`font-bold ${role === 'teacher' ? 'text-amber-600' : role === 'student' ? 'text-sky-600' : 'text-emerald-600'}`}>
-                  {role === 'teacher' ? 'Giáo viên' : role === 'student' ? 'Học sinh' : 'Phụ huynh'}
-                </span>
-              </p>
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5 ml-1">
+                Tên đăng nhập
+              </label>
+              <input
+                type="text"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                onBlur={(e) => setEmail(e.target.value.toUpperCase())}
+                disabled={isLoading}
+                className="w-full px-4 py-3.5 rounded-2xl border border-slate-200 focus:border-sky-500 focus:ring-4 focus:ring-sky-500/15 outline-none transition-all disabled:bg-slate-100 uppercase bg-slate-50/50 text-slate-800 font-semibold text-base placeholder:normal-case placeholder:font-normal placeholder:text-slate-400"
+                placeholder="VD: HS001 hoặc email..."
+                required
+              />
             </div>
 
-            <form onSubmit={handleLogin} className="space-y-5">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1.5 ml-1">Tên đăng nhập</label>
-                <input type="text" value={email} onChange={e => setEmail(e.target.value)} onBlur={e => setEmail(e.target.value.toUpperCase())} disabled={isLoading} className="w-full px-4 py-3.5 rounded-2xl border-2 border-gray-100 focus:ring-0 focus:border-sky-500 outline-none transition-all disabled:bg-gray-100 disabled:text-gray-400 uppercase bg-gray-50 md:bg-white text-base" placeholder="VD: HS001 hoặc email..." required />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1.5 ml-1">Mật khẩu</label>
-                <input type="password" value={password} onChange={e => setPassword(e.target.value)} disabled={isLoading} className="w-full px-4 py-3.5 rounded-2xl border-2 border-gray-100 focus:ring-0 focus:border-sky-500 outline-none transition-all disabled:bg-gray-100 disabled:text-gray-400 bg-gray-50 md:bg-white text-base" placeholder="Nhập mật khẩu..." required />
-              </div>
-              <button type="submit" disabled={isLoading} className="w-full bg-sky-500 hover:bg-sky-600 active:bg-sky-700 text-white font-bold py-4 px-4 rounded-2xl transition-all shadow-lg shadow-sky-500/30 mt-6 flex justify-center items-center gap-2 disabled:bg-sky-300 disabled:shadow-none disabled:cursor-not-allowed text-lg">
-                {isLoading ? (
-                  <>
-                    <Loader2 className="w-6 h-6 animate-spin" />
-                    Đang xử lý...
-                  </>
-                ) : (
-                  "Đăng nhập"
-                )}
-              </button>
-            </form>
+            <div>
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5 ml-1">
+                Mật khẩu
+              </label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={isLoading}
+                className="w-full px-4 py-3.5 rounded-2xl border border-slate-200 focus:border-sky-500 focus:ring-4 focus:ring-sky-500/15 outline-none transition-all disabled:bg-slate-100 bg-slate-50/50 text-slate-800 font-semibold text-base placeholder:font-normal placeholder:text-slate-400"
+                placeholder="Nhập mật khẩu..."
+                required
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="w-full bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 active:scale-[0.98] text-white font-extrabold py-4 px-4 rounded-2xl transition-all shadow-lg shadow-sky-500/25 mt-4 flex justify-center items-center gap-2 disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed text-base"
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  Đang đăng nhập...
+                </>
+              ) : (
+                "Đăng nhập vào lớp 🚀"
+              )}
+            </button>
+          </form>
+
+          {/* Quick Demo Hint */}
+          <div className="mt-6 pt-5 border-t border-slate-100 text-center">
+            <p className="text-xs text-slate-400 font-medium">
+              Gợi ý tài khoản thử nghiệm: <span className="font-bold text-slate-600">HS001</span> (Học sinh) / <span className="font-bold text-slate-600">teacher@school.com</span> (Giáo viên) - Mật khẩu: <span className="font-bold text-slate-600">123456</span>
+            </p>
           </div>
         </div>
       </div>
